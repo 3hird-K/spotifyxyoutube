@@ -20,6 +20,11 @@ export function usePlayer(initialTracks: Track[]) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const accumulatedRef = useRef<number>(0);
+  // Ref so onPlayerStateChange can call handleNext without a circular dep
+  const handleNextRef = useRef<(auto?: boolean) => void>(() => {});
+  // Injected by App — called when queue is exhausted (non-repeat). Receives
+  // the last-played track so App can fetch related content and append it.
+  const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => {});
 
   const currentTrack = queue[currentIndex] ?? null;
 
@@ -45,9 +50,9 @@ export function usePlayer(initialTracks: Track[]) {
     } else if (event.data === 2) {
       setIsPlaying(false);
     } else if (event.data === 0) {
-      handleNext(true);
+      handleNextRef.current(true);
     }
-  }, []); // eslint-disable-line
+  }, []);
 
   const clearTimer = () => {
     if (intervalRef.current) {
@@ -75,7 +80,9 @@ export function usePlayer(initialTracks: Track[]) {
   useEffect(() => {
     if (isPlaying) {
       startTimer();
-      playerRef.current?.playVideo();
+      // Note: playVideo() is NOT called here — the YouTube component remounts
+      // on each track change (key=youtubeId), so onPlayerReady handles it.
+      // Calling playVideo() here would race against the new player loading.
     } else {
       clearTimer();
       playerRef.current?.pauseVideo();
@@ -159,7 +166,8 @@ export function usePlayer(initialTracks: Track[]) {
             setCurrentIndex(0);
             setIsPlaying(true);
           } else {
-            setIsPlaying(false);
+            // Queue exhausted — let App fetch more related tracks instead of stopping
+            onExhaustedRef.current(queue[currentIndex] ?? null);
           }
         } else {
           setCurrentIndex(nextIdx);
@@ -169,6 +177,11 @@ export function usePlayer(initialTracks: Track[]) {
     },
     [currentIndex, queue.length, isShuffle, repeatMode]
   );
+
+  // Keep the ref in sync so onPlayerStateChange always calls the latest version
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  }, [handleNext]);
 
   const handlePrev = useCallback(() => {
     if (currentTime > 3) {
@@ -227,6 +240,8 @@ export function usePlayer(initialTracks: Track[]) {
 
   return {
     queue,
+    setQueue,
+    onExhaustedRef,
     currentTrack,
     currentIndex,
     isPlaying,

@@ -19,7 +19,7 @@ export default function Sidebar({
   setActiveView,
 }: SidebarProps) {
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-black text-white shrink-0">
+    <aside className="hidden md:flex flex-col w-64 min-h-screen bg-black text-white shrink-0">
       {/* Logo */}
       <div className="px-6 pt-7 pb-4">
         <div className="flex items-center gap-2">

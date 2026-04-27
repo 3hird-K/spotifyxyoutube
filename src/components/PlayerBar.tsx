@@ -76,44 +76,50 @@ export default function PlayerBar({
   const duration = track?.duration ?? 0;
 
   return (
-    <footer className="bg-zinc-900 border-t border-zinc-800 px-4 py-3 flex items-center gap-4">
+    <footer className="bg-zinc-900 border-t border-zinc-800 px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full h-auto z-10">
       {/* Track info */}
-      <div className="flex items-center gap-3 w-56 shrink-0">
-        {track ? (
-          <>
-            <img
-              src={track.thumbnail}
-              alt={track.title}
-              className="w-12 h-12 rounded-lg object-cover shadow-md"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-              }}
-            />
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate">{track.title}</p>
-              <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
-            </div>
-            <button
-              onClick={() => track && onToggleLike(track.id)}
-              className={`shrink-0 ml-1 transition-all hover:scale-110 ${
-                isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
-              }`}
-            >
-              <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
-            </button>
-          </>
-        ) : (
-          <div className="w-12 h-12 rounded-lg bg-zinc-800" />
+      <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-56 shrink-0">
+        <div className="flex items-center gap-3 flex-1 overflow-hidden">
+          {track ? (
+            <>
+              <img
+                src={track.thumbnail}
+                alt={track.title}
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-md shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
+                }}
+              />
+              <div className="overflow-hidden min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{track.title}</p>
+                <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+              </div>
+            </>
+          ) : (
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-800 shrink-0" />
+          )}
+        </div>
+        
+        {/* In mobile view, show play/pause right next to the song title for a mini-player feel, or just hide on mobile the extra buttons? Let's just keep the like button here and show basic controls below */}
+        {track && (
+          <button
+            onClick={() => onToggleLike(track.id)}
+            className={`shrink-0 ml-1 transition-all hover:scale-110 ${
+              isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
+            }`}
+          >
+            <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+          </button>
         )}
       </div>
 
       {/* Controls */}
-      <div className="flex-1 flex flex-col items-center gap-2">
-        <div className="flex items-center gap-5">
+      <div className="w-full sm:flex-1 flex flex-col items-center gap-1 sm:gap-2">
+        <div className="flex justify-between sm:justify-center items-center w-full sm:w-auto px-4 sm:px-0 gap-4 sm:gap-5">
           {/* Shuffle */}
           <button
             onClick={onToggleShuffle}
-            className={`transition-colors hover:scale-105 ${
+            className={`hidden sm:block transition-colors hover:scale-105 ${
               isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -152,7 +158,7 @@ export default function PlayerBar({
           {/* Repeat */}
           <button
             onClick={onToggleRepeat}
-            className={`transition-colors hover:scale-105 relative ${
+            className={`hidden sm:block transition-colors hover:scale-105 relative ${
               repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -187,7 +193,7 @@ export default function PlayerBar({
       </div>
 
       {/* Volume */}
-      <div className="flex items-center gap-2 w-36 shrink-0 justify-end">
+      <div className="hidden sm:flex items-center gap-2 w-36 shrink-0 justify-end">
         <button
           onClick={onToggleMute}
           className="text-zinc-400 hover:text-white transition-colors"

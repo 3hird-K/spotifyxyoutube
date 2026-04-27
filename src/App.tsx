@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import YouTube from "react-youtube";
 import { usePlayer } from "./hooks/usePlayer";
 import Sidebar from "./components/Sidebar";
 import PlayerBar from "./components/PlayerBar";
 import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
-import { PanelRightOpen, PanelRightClose } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Home, Search, Library } from "lucide-react";
+import { searchYouTubeMusic } from "./utils/youtube";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
@@ -14,11 +15,36 @@ export default function App() {
   // Initialize with an empty queue initially, tracks will be fetched and managed dynamically
   const player = usePlayer([]);
 
+  // Inject the exhausted-queue handler: fetch related tracks and keep playing
+  useEffect(() => {
+    player.onExhaustedRef.current = async (lastTrack) => {
+      const query = lastTrack
+        ? `${lastTrack.artist} ${lastTrack.title} music`
+        : "top trending music";
+
+      const related = await searchYouTubeMusic(query);
+      if (related.length === 0) return;
+
+      player.setQueue((prev) => {
+        // Deduplicate by id before appending
+        const existingIds = new Set(prev.map((t) => t.id));
+        const fresh = related.filter((t) => !existingIds.has(t.id));
+        if (fresh.length === 0) return prev;
+
+        const nextIdx = prev.length; // index of the first newly appended track
+        // Advance after React has committed the queue update
+        setTimeout(() => player.selectTrack(nextIdx), 0);
+
+        return [...prev, ...fresh];
+      });
+    };
+  }); // runs every render so the closure always has the latest player state
+
   return (
-    <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
+    <div className="flex flex-col h-dvh bg-black text-white overflow-hidden">
       {/* Main layout (sidebar + content + now-playing panel) */}
       <div className="flex flex-1 min-h-0">
-        {/* Sidebar */}
+        {/* Sidebar (Desktop) */}
         <Sidebar
           queue={player.queue}
           currentIndex={player.currentIndex}
@@ -37,12 +63,13 @@ export default function App() {
           onSelect={(track) => player.playArbitraryTrack(track)}
           onToggleLike={player.toggleLike}
           onTogglePlay={player.togglePlay}
+          onQueueChange={player.setQueue}
           activeView={activeView}
         />
 
         {/* Now playing panel */}
         {showNowPlaying && (
-          <aside className="w-72 bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden lg:flex w-72 bg-zinc-950 border-l border-zinc-800 flex-col shrink-0 overflow-y-auto">
             <div className="flex items-center justify-between px-4 pt-5 pb-2">
               <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">
                 Now Playing
@@ -66,7 +93,7 @@ export default function App() {
         {!showNowPlaying && (
           <button
             onClick={() => setShowNowPlaying(true)}
-            className="fixed right-4 bottom-24 z-20 w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg"
+            className="hidden lg:flex fixed right-4 bottom-24 z-20 w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg"
             title="Show Now Playing"
           >
             <PanelRightOpen size={16} />
@@ -76,6 +103,7 @@ export default function App() {
 
       {player.currentTrack && (
         <YouTube
+          key={player.currentTrack.youtubeId}
           videoId={player.currentTrack.youtubeId}
           opts={{
             height: "0",
@@ -113,6 +141,28 @@ export default function App() {
         onToggleRepeat={player.toggleRepeat}
         onToggleLike={player.toggleLike}
       />
+
+      {/* Mobile Nav (Bottom) */}
+      <nav className="md:hidden bg-zinc-900 border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-center justify-around h-16 px-4">
+          {[
+            { icon: Home, label: "Home", view: "home" },
+            { icon: Search, label: "Search", view: "search" },
+            { icon: Library, label: "Library", view: "library" },
+          ].map(({ icon: Icon, label, view }) => (
+            <button
+              key={view}
+              onClick={() => setActiveView(view)}
+              className={`flex flex-col items-center gap-1 ${
+                activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Icon size={24} />
+              <span className="text-[10px] font-medium">{label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

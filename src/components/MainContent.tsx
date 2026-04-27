@@ -12,6 +12,7 @@ interface MainContentProps {
   onSelect: (track: Track) => void;
   onToggleLike: (id: string) => void;
   onTogglePlay: () => void;
+  onQueueChange: (tracks: Track[]) => void;
   activeView: string;
 }
 
@@ -23,6 +24,7 @@ export default function MainContent({
   onSelect,
   onToggleLike,
   onTogglePlay,
+  onQueueChange,
   activeView,
 }: MainContentProps) {
   const [search, setSearch] = useState("");
@@ -38,12 +40,13 @@ export default function MainContent({
       const query = search.trim() || (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
       const results = await searchYouTubeMusic(query);
       setApiTracks(results);
+      onQueueChange(results); // ← sync player queue with visible tracks
       setIsLoading(false);
     };
 
     const debounce = setTimeout(fetchTracks, 600);
     return () => clearTimeout(debounce);
-  }, [search, selectedGenre, activeView]);
+  }, [search, selectedGenre, activeView, onQueueChange]);
 
   const displayTracks = activeView === "liked"
     ? queue.filter((t) => liked.has(t.id)) // Assuming liked tracks are pushed to queue or saved elsewhere, ideally we would need an overall store but we'll use apiTracks + queue for now
