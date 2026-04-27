@@ -13,7 +13,10 @@ import {
 import { Track } from "../data/tracks";
 import { RepeatMode } from "../hooks/usePlayer";
 import { formatTime } from "../utils/format";
-import { useRef } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface PlayerBarProps {
   track: Track | null;
@@ -56,21 +59,6 @@ export default function PlayerBar({
   onToggleRepeat,
   onToggleLike,
 }: PlayerBarProps) {
-  const seekRef = useRef<HTMLDivElement>(null);
-
-  const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!seekRef.current || !track) return;
-    const rect = seekRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    onSeek(pct);
-  };
-
-  const handleVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const rect = el.getBoundingClientRect();
-    const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    onVolumeChange(val);
-  };
 
   const isLiked = track ? liked.has(track.id) : false;
   const duration = track?.duration ?? 0;
@@ -100,16 +88,24 @@ export default function PlayerBar({
           )}
         </div>
         
-        {/* In mobile view, show play/pause right next to the song title for a mini-player feel, or just hide on mobile the extra buttons? Let's just keep the like button here and show basic controls below */}
         {track && (
-          <button
-            onClick={() => onToggleLike(track.id)}
-            className={`shrink-0 ml-1 transition-all hover:scale-110 ${
-              isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
-            }`}
-          >
-            <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => onToggleLike(track.id)}
+                  className={`shrink-0 ml-1 transition-all hover:scale-110 ${
+                    isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
+                  }`}
+                />
+              }
+            >
+              <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+            </TooltipTrigger>
+            <TooltipContent>{isLiked ? "Remove from Liked Songs" : "Save to Liked Songs"}</TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -117,100 +113,139 @@ export default function PlayerBar({
       <div className="w-full sm:flex-1 flex flex-col items-center gap-1 sm:gap-2">
         <div className="flex justify-between sm:justify-center items-center w-full sm:w-auto px-4 sm:px-0 gap-4 sm:gap-5">
           {/* Shuffle */}
-          <button
-            onClick={onToggleShuffle}
-            className={`hidden sm:block transition-colors hover:scale-105 ${
-              isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <Shuffle size={18} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleShuffle}
+                  className={`hidden sm:flex transition-colors hover:scale-105 ${
+                    isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  }`}
+                />
+              }
+            >
+              <Shuffle size={18} />
+            </TooltipTrigger>
+            <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
+          </Tooltip>
 
           {/* Prev */}
-          <button
-            onClick={onPrev}
-            className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
-          >
-            <SkipBack size={20} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onPrev}
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
+                />
+              }
+            >
+              <SkipBack size={20} />
+            </TooltipTrigger>
+            <TooltipContent>Previous</TooltipContent>
+          </Tooltip>
 
           {/* Play/Pause */}
-          <button
+          <Button
             onClick={onTogglePlay}
             disabled={!track}
-            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 shadow-lg"
+            size="icon"
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 shadow-lg hover:bg-white border-none"
           >
             {isPlaying ? (
               <Pause size={18} className="text-black" fill="black" />
             ) : (
               <Play size={18} className="text-black ml-0.5" fill="black" />
             )}
-          </button>
+          </Button>
 
           {/* Next */}
-          <button
-            onClick={onNext}
-            className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
-          >
-            <SkipForward size={20} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onNext}
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
+                />
+              }
+            >
+              <SkipForward size={20} />
+            </TooltipTrigger>
+            <TooltipContent>Next</TooltipContent>
+          </Tooltip>
 
           {/* Repeat */}
-          <button
-            onClick={onToggleRepeat}
-            className={`hidden sm:block transition-colors hover:scale-105 relative ${
-              repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
-            {repeatMode !== "none" && (
-              <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
-            )}
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleRepeat}
+                  className={`hidden sm:flex transition-colors hover:scale-105 relative ${
+                    repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  }`}
+                />
+              }
+            >
+              {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
+              {repeatMode !== "none" && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar — using Slider */}
         <div className="w-full flex items-center gap-3 max-w-lg">
           <span className="text-xs text-zinc-500 w-8 text-right tabular-nums">
             {formatTime(currentTime)}
           </span>
-          <div
-            ref={seekRef}
-            onClick={handleSeekClick}
-            className="flex-1 h-1 bg-zinc-700 rounded-full cursor-pointer group relative"
-          >
-            <div
-              className="h-full bg-[#1DB954] rounded-full relative transition-all"
-              style={{ width: `${progress}%` }}
-            >
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow opacity-0 group-hover:opacity-100 transition-opacity translate-x-1/2" />
-            </div>
-          </div>
+          <Slider
+            value={[progress]}
+            min={0}
+            max={100}
+            onValueChange={(val) => onSeek(Array.isArray(val) ? val[0] : val)}
+            className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700 [&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-range]]:bg-[#1DB954] [&_[data-slot=slider-thumb]]:size-3 [&_[data-slot=slider-thumb]]:border-[#1DB954] [&_[data-slot=slider-thumb]]:opacity-0 [&:hover_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity"
+          />
           <span className="text-xs text-zinc-500 w-8 tabular-nums">
             {formatTime(duration)}
           </span>
         </div>
       </div>
 
-      {/* Volume */}
+      {/* Volume — using Slider */}
       <div className="hidden sm:flex items-center gap-2 w-36 shrink-0 justify-end">
-        <button
-          onClick={onToggleMute}
-          className="text-zinc-400 hover:text-white transition-colors"
-        >
-          {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
-        <div
-          onClick={handleVolumeClick}
-          className="flex-1 h-1 bg-zinc-700 rounded-full cursor-pointer group relative"
-        >
-          <div
-            className="h-full bg-zinc-300 rounded-full relative"
-            style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={onToggleMute}
+                className="text-zinc-400 hover:text-white transition-colors"
+              />
+            }
           >
-            <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow opacity-0 group-hover:opacity-100 transition-opacity translate-x-1/2" />
-          </div>
-        </div>
+            {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </TooltipTrigger>
+          <TooltipContent>{isMuted ? "Unmute" : "Mute"}</TooltipContent>
+        </Tooltip>
+        <Slider
+          value={[isMuted ? 0 : volume * 100]}
+          min={0}
+          max={100}
+          onValueChange={(val) => onVolumeChange((Array.isArray(val) ? val[0] : val) / 100)}
+          className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700 [&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-range]]:bg-zinc-300 [&_[data-slot=slider-thumb]]:size-3 [&_[data-slot=slider-thumb]]:border-zinc-300 [&_[data-slot=slider-thumb]]:opacity-0 [&:hover_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity"
+        />
       </div>
     </footer>
   );

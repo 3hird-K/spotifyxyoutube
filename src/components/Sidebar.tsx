@@ -1,8 +1,21 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, X, ListMusic, Trash2 } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../../public/images/spotifylogo.png';
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 
 interface SidebarProps {
@@ -16,12 +29,12 @@ interface SidebarProps {
   onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (id: string) => void;
   recentlyPlayed: Track[];
+  onTrackDetail: (track: Track) => void;
 }
 
 export default function Sidebar({
   queue,
   currentIndex,
-  onSelect,
   liked,
   activeView,
   setActiveView,
@@ -29,6 +42,7 @@ export default function Sidebar({
   onCreatePlaylist,
   onDeletePlaylist,
   recentlyPlayed,
+  onTrackDetail,
 }: SidebarProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -59,7 +73,6 @@ export default function Sidebar({
         <nav className="px-3 space-y-1">
           {[
             { icon: Home, label: "Home", view: "home" },
-            // { icon: Search, label: "Search", view: "search" },
             { icon: Library, label: "Your Library", view: "library" },
           ].map(({ icon: Icon, label, view }) => (
             <button
@@ -68,7 +81,7 @@ export default function Sidebar({
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
                 activeView === view
                   ? "text-white bg-zinc-800"
-                  : "text-zinc-400 hover:text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
               }`}
             >
               <Icon size={22} />
@@ -77,7 +90,7 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="mx-3 my-4 border-t border-zinc-800" />
+        <Separator className="mx-3 my-4 bg-zinc-800" />
 
         {/* Liked Songs + Create Playlist */}
         <div className="px-3 space-y-1">
@@ -86,7 +99,7 @@ export default function Sidebar({
             className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
               activeView === "liked"
                 ? "text-white bg-zinc-800"
-                : "text-zinc-400 hover:text-white"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
             }`}
           >
             <span className="w-6 h-6 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
@@ -102,7 +115,7 @@ export default function Sidebar({
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold text-zinc-400 hover:text-white transition-colors"
+            className="w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors"
           >
             <span className="w-6 h-6 rounded bg-zinc-700 flex items-center justify-center shrink-0">
               <Plus size={12} />
@@ -114,7 +127,7 @@ export default function Sidebar({
         {/* User Playlists */}
         {playlists.length > 0 && (
           <>
-            <div className="mx-3 my-3 border-t border-zinc-800" />
+            <Separator className="mx-3 my-3 bg-zinc-800" />
             <div className="px-3 pb-2">
               <p className="text-xs text-zinc-500 uppercase font-bold px-3 mb-2 tracking-widest">
                 Playlists
@@ -138,15 +151,24 @@ export default function Sidebar({
                         {pl.tracks.length}
                       </span>
                     </button>
-                    <button
-                      onClick={() => {
-                        onDeletePlaylist(pl.id);
-                        if (activeView === `playlist:${pl.id}`) setActiveView("home");
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-600 hover:text-red-400 transition-all rounded"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => {
+                              onDeletePlaylist(pl.id);
+                              if (activeView === `playlist:${pl.id}`) setActiveView("home");
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 hover:bg-transparent transition-all"
+                          />
+                        }
+                      >
+                        <Trash2 size={13} />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">Delete playlist</TooltipContent>
+                    </Tooltip>
                   </div>
                 ))}
               </div>
@@ -154,10 +176,10 @@ export default function Sidebar({
           </>
         )}
 
-        <div className="mx-3 my-3 border-t border-zinc-800" />
+        <Separator className="mx-3 my-3 bg-zinc-800" />
 
-        {/* Queue list */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
+        {/* Recents list */}
+        <ScrollArea className="flex-1 px-3 pb-4">
           <p className="text-xs text-zinc-500 uppercase font-bold px-3 mb-3 tracking-widest">
             Recents
           </p>
@@ -168,7 +190,7 @@ export default function Sidebar({
               return (
               <button
                 key={track.id}
-                onClick={() => trackIndex >= 0 && onSelect(trackIndex)}
+                onClick={() => onTrackDetail(track)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group text-left ${
                   isCurrentTrack
                     ? "bg-zinc-800 text-[#1DB954]"
@@ -203,59 +225,49 @@ export default function Sidebar({
             );
             })}
           </div>
-        </div>
+        </ScrollArea>
       </aside>
 
-      {/* Create Playlist Modal */}
-      {showCreateModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}
-        >
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-80 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">Create Playlist</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-zinc-500 hover:text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* Create Playlist Modal — shadcn Dialog */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white">Create Playlist</DialogTitle>
+          </DialogHeader>
 
-            <div className="mb-4">
-              <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2 block">
-                Playlist Name
-              </label>
-              <input
-                autoFocus
-                type="text"
-                value={newPlaylistName}
-                onChange={(e) => setNewPlaylistName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                placeholder="My awesome playlist…"
-                className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#1DB954] transition-colors"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-semibold hover:bg-zinc-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!newPlaylistName.trim()}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-[#1DB954] text-black text-sm font-bold hover:bg-[#1ed760] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Create
-              </button>
-            </div>
+          <div>
+            <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2 block">
+              Playlist Name
+            </label>
+            <Input
+              autoFocus
+              type="text"
+              value={newPlaylistName}
+              onChange={(e) => setNewPlaylistName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              placeholder="My awesome playlist…"
+              className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500 focus-visible:border-[#1DB954] focus-visible:ring-[#1DB954]/30"
+            />
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="flex-row gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowCreateModal(false)}
+              className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newPlaylistName.trim()}
+              className="flex-1 bg-[#1DB954] text-black font-bold hover:bg-[#1ed760] disabled:opacity-40"
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { useSearchMusic } from "../hooks/useSearchMusic";
 import { Track } from "../data/tracks";
 import { formatTime } from "../utils/format";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -28,69 +38,54 @@ export default function SearchModal({
   // Focus input when modal opens
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-2xl mx-4 max-h-[80vh] rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800 shrink-0">
-          <div className="relative flex-1 flex items-center gap-3 px-4 py-2 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
-            <Search size={18} className="text-zinc-500" />
-            <input
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="bg-zinc-900 border-zinc-800 text-white sm:max-w-2xl p-0 gap-0 max-h-[80vh] flex flex-col"
+        showCloseButton={false}
+      >
+        {/* Header with search input */}
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-zinc-800 shrink-0">
+          <DialogTitle className="sr-only">Search Music</DialogTitle>
+          <div className="relative flex items-center gap-3">
+            <Search size={18} className="text-zinc-500 absolute left-3 pointer-events-none" />
+            <Input
               ref={inputRef}
               type="text"
               placeholder="Search songs, artists…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder-zinc-500 focus:outline-none text-sm"
+              className="pl-10 bg-zinc-800/30 border-zinc-700/50 text-white placeholder-zinc-500 focus-visible:border-[#1DB954] focus-visible:ring-[#1DB954]/30 h-10"
             />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500 hover:text-zinc-300"
-          >
-            <X size={20} />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+        <ScrollArea className="flex-1 min-h-[300px]">
           {query.length < 3 ? (
-            <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center">
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <Search size={32} className="text-zinc-600 mb-3" />
               <p className="text-zinc-400 text-sm">
                 Search for music by title, artist, or album.
               </p>
             </div>
           ) : isLoading ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center py-16">
               <div className="animate-spin">
                 <div className="w-8 h-8 border-2 border-zinc-600 border-t-zinc-400 rounded-full" />
               </div>
             </div>
           ) : results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full py-12 px-4 text-center">
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <Search size={32} className="text-zinc-600 mb-3" />
               <p className="text-zinc-400 text-sm">No results found</p>
             </div>
@@ -128,32 +123,34 @@ export default function SearchModal({
                     <span className="text-xs text-zinc-500">
                       {formatTime(track.duration)}
                     </span>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleLike(track.id);
                       }}
-                      className="p-1.5 hover:bg-zinc-700 rounded-lg transition-colors"
+                      className="hover:bg-zinc-700"
                     >
                       <svg
                         width={16}
                         height={16}
                         viewBox="0 0 24 24"
-                        fill={liked.has(track.id) ? "#ef4444" : "none"}
-                        stroke={liked.has(track.id) ? "#ef4444" : "currentColor"}
+                        fill={liked.has(track.id) ? "#1DB954" : "none"}
+                        stroke={liked.has(track.id) ? "#1DB954" : "currentColor"}
                         strokeWidth="2"
                         className="text-zinc-500"
                       >
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }

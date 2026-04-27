@@ -11,8 +11,13 @@ import { searchYouTubeMusic } from "./utils/youtube";
 import { Playlist } from "./data/playlists";
 import { Track } from "./data/tracks";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+
 export default function App() {
   const [activeView, setActiveView] = useState("home");
+  const [selectedTrackDetail, setSelectedTrackDetail] = useState<Track | null>(null);
   const [showNowPlaying, setShowNowPlaying] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
@@ -86,6 +91,11 @@ export default function App() {
   // ── Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([]);
 
+  const handleTrackDetail = useCallback((track: Track) => {
+    setSelectedTrackDetail(track);
+    setActiveView("track-detail");
+  }, []);
+
   // Handle track selection from search modal (fetch related tracks)
   const handleSelectFromSearch = useCallback(async (track: Track) => {
     player.playArbitraryTrack(track);
@@ -143,147 +153,171 @@ export default function App() {
   const activePlaylist = playlists.find((pl) => pl.id === activePlaylistId) ?? null;
 
   return (
-    <div className="flex flex-col h-dvh bg-black text-white overflow-hidden">
-      {/* Main layout (sidebar + content + now-playing panel) */}
-      <div className="flex flex-1 min-h-0">
-        {/* Sidebar (Desktop) */}
-        <Sidebar
-          queue={player.queue}
-          currentIndex={player.currentIndex}
-          onSelect={player.selectTrack}
-          liked={player.liked}
-          activeView={activeView}
-          setActiveView={setActiveView}
-          playlists={playlists}
-          onCreatePlaylist={handleCreatePlaylist}
-          onDeletePlaylist={handleDeletePlaylist}
-          recentlyPlayed={recentlyPlayed}
-        />
+    <TooltipProvider>
+      <div className="flex flex-col h-dvh bg-black text-white overflow-hidden">
+        {/* Main layout (sidebar + content + now-playing panel) */}
+        <div className="flex flex-1 min-h-0">
+          {/* Sidebar (Desktop) */}
+          <Sidebar
+            queue={player.queue}
+            currentIndex={player.currentIndex}
+            onSelect={player.selectTrack}
+            liked={player.liked}
+            activeView={activeView}
+            setActiveView={setActiveView}
+            playlists={playlists}
+            onCreatePlaylist={handleCreatePlaylist}
+            onDeletePlaylist={handleDeletePlaylist}
+            recentlyPlayed={recentlyPlayed}
+            onTrackDetail={handleTrackDetail}
+          />
 
-        {/* Main content */}
-        <MainContent
-          currentTrack={player.currentTrack}
-          isPlaying={player.isPlaying}
-          liked={player.liked}
-          queue={player.queue}
-          onSelect={(track) => player.playArbitraryTrack(track)}
-          onToggleLike={player.toggleLike}
-          onTogglePlay={player.togglePlay}
-          onQueueChange={player.setQueue}
-          activeView={activeView}
-          playlists={playlists}
-          onAddToPlaylist={handleAddToPlaylist}
-          onRemoveFromPlaylist={handleRemoveFromPlaylist}
-          activePlaylist={activePlaylist}
-          onOpenSearch={() => setIsSearchOpen(true)}
-          searchResults={searchResults}
-        />
+          {/* Main content */}
+          <MainContent
+            currentTrack={player.currentTrack}
+            isPlaying={player.isPlaying}
+            liked={player.liked}
+            queue={player.queue}
+            onSelect={(track) => player.playArbitraryTrack(track)}
+            onToggleLike={player.toggleLike}
+            onTogglePlay={player.togglePlay}
+            onQueueChange={player.setQueue}
+            activeView={activeView}
+            playlists={playlists}
+            onAddToPlaylist={handleAddToPlaylist}
+            onRemoveFromPlaylist={handleRemoveFromPlaylist}
+            activePlaylist={activePlaylist}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            searchResults={searchResults}
+            selectedTrackDetail={selectedTrackDetail}
+            onTrackDetail={handleTrackDetail}
+            recentlyPlayed={recentlyPlayed}
+          />
 
-        {/* Now playing panel */}
-        {showNowPlaying && (
-          <aside className="hidden lg:flex w-72 bg-zinc-950 border-l border-zinc-800 flex-col shrink-0 overflow-y-auto">
-            <div className="flex items-center justify-between px-4 pt-5 pb-2">
-              <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">
-                Now Playing
-              </span>
-              <button
-                onClick={() => setShowNowPlaying(false)}
-                className="text-zinc-600 hover:text-white transition-colors"
+          {/* Now playing panel */}
+          {showNowPlaying && (
+            <aside className="hidden lg:flex w-72 bg-zinc-950 border-l border-zinc-800 flex-col shrink-0 overflow-y-auto">
+              <div className="flex items-center justify-between px-4 pt-5 pb-2">
+                <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">
+                  Now Playing
+                </span>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setShowNowPlaying(false)}
+                        className="text-zinc-600 hover:text-white transition-colors"
+                      />
+                    }
+                  >
+                    <PanelRightClose size={16} />
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Hide panel</TooltipContent>
+                </Tooltip>
+              </div>
+              <NowPlaying
+                track={player.currentTrack}
+                liked={player.liked}
+                onToggleLike={player.toggleLike}
+              />
+            </aside>
+          )}
+
+          {/* Toggle now-playing button (when panel is closed) */}
+          {!showNowPlaying && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowNowPlaying(true)}
+                    className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg"
+                  />
+                }
               >
-                <PanelRightClose size={16} />
-              </button>
-            </div>
-            <NowPlaying
-              track={player.currentTrack}
-              liked={player.liked}
-              onToggleLike={player.toggleLike}
-            />
-          </aside>
-        )}
-
-        {/* Toggle now-playing button (when panel is closed) */}
-        {!showNowPlaying && (
-          <button
-            onClick={() => setShowNowPlaying(true)}
-            className="fixed right-4 bottom-24 z-20 hidden lg:flex w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg"
-            title="Show Now Playing"
-          >
-            <PanelRightOpen size={16} />
-          </button>
-        )}
-      </div>
-
-      {player.currentTrack && (
-        <YouTube
-          key={player.currentTrack.youtubeId}
-          videoId={player.currentTrack.youtubeId}
-          opts={{
-            height: "0",
-            width: "0",
-            playerVars: {
-              autoplay: 1,
-              controls: 0,
-              modestbranding: 1,
-            },
-          }}
-          onReady={player.onPlayerReady}
-          onStateChange={player.onPlayerStateChange}
-          className="hidden"
-        />
-      )}
-
-      {/* Player bar */}
-      <PlayerBar
-        track={player.currentTrack}
-        isPlaying={player.isPlaying}
-        progress={player.progress}
-        currentTime={player.currentTime}
-        volume={player.volume}
-        isMuted={player.isMuted}
-        isShuffle={player.isShuffle}
-        repeatMode={player.repeatMode}
-        liked={player.liked}
-        onTogglePlay={player.togglePlay}
-        onNext={() => player.handleNext()}
-        onPrev={player.handlePrev}
-        onSeek={player.seek}
-        onVolumeChange={player.setVolume}
-        onToggleMute={player.toggleMute}
-        onToggleShuffle={player.toggleShuffle}
-        onToggleRepeat={player.toggleRepeat}
-        onToggleLike={player.toggleLike}
-      />
-
-      {/* Mobile Nav (Bottom) */}
-      <nav className="md:hidden bg-zinc-900 border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-center justify-around h-16 px-4">
-          {[
-            { icon: Home, label: "Home", view: "home" },
-            { icon: Search, label: "Search", view: "search" },
-            { icon: Library, label: "Library", view: "library" },
-          ].map(({ icon: Icon, label, view }) => (
-            <button
-              key={view}
-              onClick={() => setActiveView(view)}
-              className={`flex flex-col items-center gap-1 ${
-                activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              <Icon size={24} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </button>
-          ))}
+                <PanelRightOpen size={16} />
+              </TooltipTrigger>
+              <TooltipContent side="left">Show Now Playing</TooltipContent>
+            </Tooltip>
+          )}
         </div>
-      </nav>
 
-      {/* Search Modal */}
-      <SearchModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        onSelectTrack={handleSelectFromSearch}
-        liked={player.liked}
-        onToggleLike={player.toggleLike}
-      />
-    </div>
+        {player.currentTrack && (
+          <YouTube
+            key={player.currentTrack.youtubeId}
+            videoId={player.currentTrack.youtubeId}
+            opts={{
+              height: "0",
+              width: "0",
+              playerVars: {
+                autoplay: 1,
+                controls: 0,
+                modestbranding: 1,
+              },
+            }}
+            onReady={player.onPlayerReady}
+            onStateChange={player.onPlayerStateChange}
+            className="hidden"
+          />
+        )}
+
+        {/* Player bar */}
+        <PlayerBar
+          track={player.currentTrack}
+          isPlaying={player.isPlaying}
+          progress={player.progress}
+          currentTime={player.currentTime}
+          volume={player.volume}
+          isMuted={player.isMuted}
+          isShuffle={player.isShuffle}
+          repeatMode={player.repeatMode}
+          liked={player.liked}
+          onTogglePlay={player.togglePlay}
+          onNext={() => player.handleNext()}
+          onPrev={player.handlePrev}
+          onSeek={player.seek}
+          onVolumeChange={player.setVolume}
+          onToggleMute={player.toggleMute}
+          onToggleShuffle={player.toggleShuffle}
+          onToggleRepeat={player.toggleRepeat}
+          onToggleLike={player.toggleLike}
+        />
+
+        {/* Mobile Nav (Bottom) */}
+        <nav className="md:hidden bg-zinc-900 border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
+          <div className="flex items-center justify-around h-16 px-4">
+            {[
+              { icon: Home, label: "Home", view: "home" },
+              { icon: Search, label: "Search", view: "search" },
+              { icon: Library, label: "Library", view: "library" },
+            ].map(({ icon: Icon, label, view }) => (
+              <Button
+                key={view}
+                variant="ghost"
+                onClick={() => setActiveView(view)}
+                className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${
+                  activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Icon size={24} />
+                <span className="text-[10px] font-medium">{label}</span>
+              </Button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Search Modal */}
+        <SearchModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onSelectTrack={handleSelectFromSearch}
+          liked={player.liked}
+          onToggleLike={player.toggleLike}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

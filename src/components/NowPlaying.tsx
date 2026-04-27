@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import { Track } from "../data/tracks";
 
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
 interface NowPlayingProps {
   track: Track | null;
   liked: Set<string>;
@@ -51,24 +56,34 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
           <p className="text-sm text-zinc-400 truncate">{track.artist}</p>
           <p className="text-xs text-zinc-600 truncate mt-0.5">{track.album} · {track.year}</p>
         </div>
-        <button
-          onClick={() => onToggleLike(track.id)}
-          className={`shrink-0 mt-1 transition-all hover:scale-110 active:scale-95 ${
-            isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
-          }`}
-        >
-          <Heart size={22} className={isLiked ? "fill-[#1DB954]" : ""} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onToggleLike(track.id)}
+                className={`shrink-0 mt-1 transition-all hover:scale-110 active:scale-95 ${
+                  isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
+                }`}
+              />
+            }
+          >
+            <Heart size={22} className={isLiked ? "fill-[#1DB954]" : ""} />
+          </TooltipTrigger>
+          <TooltipContent side="left">{isLiked ? "Remove from Liked" : "Save to Liked"}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Divider */}
-      <div className="w-full border-t border-zinc-800" />
+      <Separator className="w-full bg-zinc-800" />
 
       {/* Links section */}
       <div className="w-full space-y-3">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setShowLinks((v) => !v)}
-          className="w-full flex items-center justify-between text-zinc-400 hover:text-white transition-colors text-sm font-semibold"
+          className="w-full flex items-center justify-between text-zinc-400 hover:text-white transition-colors text-sm font-semibold h-auto py-2 px-0"
         >
           <span className="flex items-center gap-2">
             <Share2 size={14} />
@@ -78,7 +93,7 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
             size={14}
             className={`transition-transform ${showLinks ? "rotate-180" : ""}`}
           />
-        </button>
+        </Button>
 
         {showLinks && (
           <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
@@ -131,8 +146,7 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/20 hover:bg-[#1DB954]/20 transition-colors group"
               >
                 <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 text-[#1DB954] shrink-0" fill="currentColor">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
                 <div className="overflow-hidden flex-1">
                   <p className="text-xs font-bold text-[#1DB954] uppercase tracking-wide">
                     Spotify
@@ -150,9 +164,9 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
 
       {/* Genre badge */}
       <div className="mt-auto">
-        <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-semibold">
+        <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-xs font-semibold px-3 py-1 rounded-full h-auto">
           {track.genre}
-        </span>
+        </Badge>
       </div>
     </div>
   );
