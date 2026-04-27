@@ -6,8 +6,13 @@ export type RepeatMode = "none" | "one" | "all";
 
 export function usePlayer(initialTracks: Track[]) {
   const [queue, setQueue] = useState<Track[]>(initialTracks);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const setQueueOnly = useCallback((tracks: Track[]) => {
+    setQueue(tracks);
+  }, []);
+
   const [progress, setProgress] = useState(0); // 0-100
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(0.8);
@@ -39,7 +44,7 @@ export function usePlayer(initialTracks: Track[]) {
   const handleNextRef = useRef<(auto?: boolean) => void>(() => {});
   const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => {});
 
-  const currentTrack = queue[currentIndex] ?? null;
+  const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
 
   const onPlayerReady = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;
@@ -49,12 +54,14 @@ export function usePlayer(initialTracks: Track[]) {
     } else {
       event.target.unMute();
     }
-    if (isPlaying) {
+    
+    // Safety check: Only play if isPlaying is true and we have a valid track index
+    if (isPlaying && currentIndex >= 0) {
       event.target.playVideo();
     } else {
       event.target.pauseVideo();
     }
-  }, [isPlaying, volume, isMuted]);
+  }, [isPlaying, volume, isMuted, currentIndex]);
 
   const onPlayerStateChange = useCallback((event: YouTubeEvent) => {
     if (event.data === 1) {
@@ -90,7 +97,7 @@ export function usePlayer(initialTracks: Track[]) {
   }, [currentTrack]);
 
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && currentIndex >= 0) {
       startTimer();
     } else {
       clearTimer();
@@ -124,20 +131,18 @@ export function usePlayer(initialTracks: Track[]) {
   }, []);
 
   const playArbitraryTrack = useCallback((track: Track) => {
+    setCurrentTime(0);
+    setProgress(0);
+    setIsPlaying(true);
     setQueue((prev) => {
       const idx = prev.findIndex(t => t.id === track.id);
       if (idx !== -1) {
-        setCurrentTime(0);
-        setProgress(0);
         setCurrentIndex(idx);
-        setIsPlaying(true);
         return prev;
       }
-      setCurrentTime(0);
-      setProgress(0);
-      setCurrentIndex(prev.length);
-      setIsPlaying(true);
-      return [...prev, track];
+      const newQueue = [...prev, track];
+      setCurrentIndex(newQueue.length - 1);
+      return newQueue;
     });
   }, []);
 
@@ -160,10 +165,10 @@ export function usePlayer(initialTracks: Track[]) {
       } else {
         const nextIdx = currentIndex + 1;
         if (nextIdx >= queue.length) {
-          if (repeatMode === "all") {
+          if (repeatMode === "all" && queue.length > 0) {
             setCurrentIndex(0);
             setIsPlaying(true);
-          } else {
+          } else if (currentIndex >= 0) {
             onExhaustedRef.current(queue[currentIndex] ?? null);
           }
         } else {
@@ -259,5 +264,6 @@ export function usePlayer(initialTracks: Track[]) {
     toggleRepeat,
     toggleLike,
     addToQueue,
+    setQueueOnly,
   };
 }

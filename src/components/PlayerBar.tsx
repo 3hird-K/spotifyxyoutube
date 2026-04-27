@@ -61,6 +61,7 @@ export default function PlayerBar({
   onToggleLike,
   onTrackDetail,
 }: PlayerBarProps) {
+  if (!track) return null;
 
   const isLiked = track ? liked.has(track.id) : false;
   const duration = track?.duration ?? 0;

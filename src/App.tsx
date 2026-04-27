@@ -123,7 +123,16 @@ export default function App() {
     setActiveView("search-results");
   }, [player]);
 
+  // Update queue when trending tracks change (only if NO track is currently playing)
+  // This prevents the trending fetch from overriding a user's current session
+  useEffect(() => {
+    if (activeView === "home" && searchResults.length === 0 && !player.currentTrack) {
+      // player.setQueue(initialTrending) etc.
+    }
+  }, [activeView, searchResults.length, player.currentTrack]);
+
   // Inject the exhausted-queue handler: fetch related tracks and keep playing
+  // and handle initial queue population without auto-playing
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
       const query = lastTrack
@@ -183,6 +192,7 @@ export default function App() {
             onToggleLike={player.toggleLike}
             onTogglePlay={player.togglePlay}
             onQueueChange={player.setQueue}
+            onQueueUpdateOnly={player.setQueueOnly}
             activeView={activeView}
             setActiveView={setActiveView}
             playlists={playlists}
@@ -267,27 +277,29 @@ export default function App() {
         )}
 
         {/* Player bar */}
-        <PlayerBar
-          track={player.currentTrack}
-          isPlaying={player.isPlaying}
-          progress={player.progress}
-          currentTime={player.currentTime}
-          volume={player.volume}
-          isMuted={player.isMuted}
-          isShuffle={player.isShuffle}
-          repeatMode={player.repeatMode}
-          liked={player.liked}
-          onTogglePlay={player.togglePlay}
-          onNext={() => player.handleNext()}
-          onPrev={player.handlePrev}
-          onSeek={player.seek}
-          onVolumeChange={player.setVolume}
-          onToggleMute={player.toggleMute}
-          onToggleShuffle={player.toggleShuffle}
-          onToggleRepeat={player.toggleRepeat}
-          onToggleLike={player.toggleLike}
-          onTrackDetail={handleTrackDetail}
-        />
+        <div className="hidden md:block">
+          <PlayerBar
+            track={player.currentTrack}
+            isPlaying={player.isPlaying}
+            progress={player.progress}
+            currentTime={player.currentTime}
+            volume={player.volume}
+            isMuted={player.isMuted}
+            isShuffle={player.isShuffle}
+            repeatMode={player.repeatMode}
+            liked={player.liked}
+            onTogglePlay={player.togglePlay}
+            onNext={() => player.handleNext()}
+            onPrev={player.handlePrev}
+            onSeek={player.seek}
+            onVolumeChange={player.setVolume}
+            onToggleMute={player.toggleMute}
+            onToggleShuffle={player.toggleShuffle}
+            onToggleRepeat={player.toggleRepeat}
+            onToggleLike={player.toggleLike}
+            onTrackDetail={handleTrackDetail}
+          />
+        </div>
 
         {/* Mobile Nav (Bottom) */}
         <nav className="md:hidden bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">

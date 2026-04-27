@@ -32,6 +32,7 @@ interface MainContentProps {
   onToggleLike: (track: Track) => void;
   onTogglePlay: () => void;
   onQueueChange: (tracks: Track[]) => void;
+  onQueueUpdateOnly: (tracks: Track[]) => void;
   activeView: string;
   setActiveView: (view: string) => void;
   playlists: Playlist[];
@@ -55,6 +56,7 @@ export default function MainContent({
   onToggleLike,
   onTogglePlay,
   onQueueChange,
+  onQueueUpdateOnly,
   activeView,
   setActiveView,
   playlists,
@@ -70,6 +72,7 @@ export default function MainContent({
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
+  const [activeTab, setActiveTab] = useState("All");
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const isLibraryView = activeView === "library";
@@ -82,12 +85,14 @@ export default function MainContent({
   // Use React Query hook for data fetching (trending only)
   const { data: apiTracks = [], isLoading: isTrendingLoading } = useSearchMusic(trendingQuery, shouldFetchTrending);
 
-  // Update queue when trending tracks change
+  // Update queue when trending tracks change - BUT ONLY if nothing is currently playing
   useEffect(() => {
-    if (shouldFetchTrending && apiTracks.length > 0) {
-      onQueueChange(apiTracks);
+    // CRITICAL: Only update the queue if there's NO current track playing
+    // This prevents clicking "Home" from interrupting your music
+    if (shouldFetchTrending && apiTracks.length > 0 && !currentTrack) {
+      onQueueUpdateOnly(apiTracks);
     }
-  }, [apiTracks, shouldFetchTrending, onQueueChange]);
+  }, [apiTracks, shouldFetchTrending, onQueueUpdateOnly, currentTrack]);
 
   // Fetch recommended tracks when in track detail view
   useEffect(() => {
@@ -103,7 +108,175 @@ export default function MainContent({
     }
   }, [isTrackDetailView, selectedTrackDetail]);
 
-  // Determine tracks to display for list views
+  // Mobile Home View - Grid Layout  - CSS-based responsive (uses md: breakpoint)
+  // This returns desktop/tablet version for smaller screens via CSS media queries
+  const mobileGridContent = (
+    <main className="md:hidden flex-1 flex flex-col min-h-0 w-full bg-zinc-950 overflow-y-auto pb-24">
+      {/* Mobile Header with Tabs & Search */}
+      <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md w-full px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-black font-bold text-xs">
+              A
+            </div>
+            <h1 className="text-xl font-bold text-white">Music</h1>
+          </div>
+          <div className="flex gap-4">
+            <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white">
+              <Search size={24} />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {["All", "Music", "Podcasts"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                if (tab === "Music") setSelectedGenre("Pop");
+                if(tab === "Podcasts") setSelectedGenre("Podcast");
+                else setSelectedGenre("All");
+              }}
+              className={`shrink-0 px-4 py-1.5 rounded-full font-medium text-sm transition-colors ${
+                activeTab === tab
+                  ? "bg-[#1DB954] text-black"
+                  : "bg-zinc-800/80 text-zinc-300 hover:text-white"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile Content Grid */}
+      <div className="flex-1 px-4 py-2 w-full">
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {/* Liked Songs Card */}
+          <div
+            onClick={() => setActiveView("liked")}
+            className="flex items-center gap-2 bg-zinc-900/80 rounded-md overflow-hidden hover:bg-zinc-800 transition-colors cursor-pointer h-14"
+          >
+            <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-800 flex items-center justify-center shrink-0">
+              <Heart size={18} className="text-white fill-white" />
+            </div>
+            <span className="text-[11px] font-bold text-white truncate pr-2">Liked Songs</span>
+          </div>
+
+          {/* Playlists in Grid */}
+          {playlists.slice(0, 5).map((pl) => (
+            <div
+              key={pl.id}
+              onClick={() => setActiveView(`playlist:${pl.id}`)}
+              className="flex items-center gap-2 bg-zinc-900/80 rounded-md overflow-hidden hover:bg-zinc-800 transition-colors cursor-pointer h-14"
+            >
+              <div className="w-14 h-14 bg-zinc-800 shrink-0">
+                {pl.tracks[0]?.thumbnail ? (
+                  <img src={pl.tracks[0].thumbnail} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"><ListMusic size={16} className="text-zinc-600" /></div>
+                )}
+              </div>
+              <span className="text-[11px] font-bold text-white truncate pr-2">{pl.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Recommended Tracks Section */}
+        <div className="mb-6">
+          <h2 className="text-xl font-black text-white mb-4">Recommended for you</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {(apiTracks.length > 0 ? apiTracks : recentlyPlayed).slice(0, 6).map((track) => (
+              <div 
+                key={track.id} 
+                onClick={() => onSelect(track)}
+                className="flex flex-col gap-2 group cursor-pointer"
+              >
+                <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
+                  <img src={track.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                  <button className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                    <Play size={14} className="text-black fill-black ml-0.5" />
+                  </button>
+                </div>
+                <div className="px-0.5">
+                  <p className="text-[11px] font-bold text-white truncate">{track.title}</p>
+                  <p className="text-[10px] text-zinc-500 truncate">{track.artist}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Made for You Section */}
+        <div>
+          <h2 className="text-xl font-black text-white mb-4">Made for You</h2>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+            {apiTracks.slice(6, 12).map((track) => (
+              <div 
+                key={track.id} 
+                onClick={() => onSelect(track)}
+                className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
+              >
+                <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
+                  <img src={track.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                </div>
+                <p className="text-[10px] font-medium text-zinc-400 line-clamp-2">
+                  Daily Mix featuring {track.artist} and more
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Currently Playing Floating Bar (Mobile) */}
+      {currentTrack && (
+        <div className="fixed bottom-[65px] left-2 right-2 z-30">
+          <div 
+            onClick={() => onTrackDetail(currentTrack)}
+            className="bg-zinc-900/95 backdrop-blur-md rounded-md p-1.5 flex items-center gap-3 shadow-2xl border border-zinc-800"
+          >
+            <img
+              src={currentTrack.thumbnail}
+              alt={currentTrack.title}
+              className="w-10 h-10 rounded object-cover flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-[11px] font-bold truncate">{currentTrack.title}</p>
+              <p className="text-zinc-400 text-[10px] truncate">{currentTrack.artist}</p>
+            </div>
+            <div className="flex items-center gap-1 pr-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleLike(currentTrack); }}
+                className={`${liked.has(currentTrack.id) ? "text-[#1DB954]" : "text-zinc-400"} p-2`}
+              >
+                <Heart size={20} className={liked.has(currentTrack.id) ? "fill-[#1DB954]" : ""} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+                className="w-8 h-8 flex items-center justify-center text-white"
+              >
+                {isPlaying ? <Pause size={20} fill="white" /> : <Play size={20} fill="white" />}
+              </button>
+            </div>
+          </div>
+          {/* Simple progress bar */}
+          <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-white transition-all duration-1000" style={{ width: "35%" }} />
+          </div>
+        </div>
+      )}
+    </main>
+  );
+
+  // Return mobile grid for home view (hidden on md and above due to md:hidden class)
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  if (activeView === "home" && isMobile) {
+    return mobileGridContent;
+  }
+
+  // Determine tracks to display for list views (for desktop/non-home views)
   let displayTracks: Track[] = [];
   if (activeView === "liked") {
     displayTracks = likedTracks;
