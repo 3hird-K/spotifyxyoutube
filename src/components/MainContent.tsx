@@ -23,6 +23,7 @@ interface MainContentProps {
   onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
   activePlaylist: Playlist | null;
   onOpenSearch: () => void;
+  searchResults: Track[];
 }
 
 export default function MainContent({
@@ -40,6 +41,7 @@ export default function MainContent({
   onRemoveFromPlaylist,
   activePlaylist,
   onOpenSearch,
+  searchResults,
 }: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
 
@@ -63,6 +65,8 @@ export default function MainContent({
   let displayTracks: Track[] = [];
   if (activeView === "liked") {
     displayTracks = queue.filter((t) => liked.has(t.id));
+  } else if (activeView === "search-results") {
+    displayTracks = searchResults;
   } else if (isPlaylistView && activePlaylist) {
     displayTracks = activePlaylist.tracks;
   } else {
@@ -71,6 +75,8 @@ export default function MainContent({
 
   const pageTitle = isPlaylistView
     ? activePlaylist?.name ?? "Playlist"
+    : activeView === "search-results"
+    ? "Search Results"
     : activeView === "liked"
     ? "Liked Songs"
     : activeView === "search"

@@ -15,6 +15,8 @@ export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [showNowPlaying, setShowNowPlaying] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
 
   // ── Playlist state (persisted to localStorage) ───────────────────────────
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
@@ -84,6 +86,33 @@ export default function App() {
   // ── Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([]);
 
+  // Handle track selection from search modal (fetch related tracks)
+  const handleSelectFromSearch = useCallback(async (track: Track) => {
+    player.playArbitraryTrack(track);
+    
+    // Add to recently played
+    setRecentlyPlayed((prev) => {
+      const filtered = prev.filter((t) => t.id !== track.id);
+      return [track, ...filtered].slice(0, 20); // Keep last 20
+    });
+    
+    // Fetch related tracks
+    const query = `${track.artist} ${track.title} music`;
+    const related = await searchYouTubeMusic(query);
+    
+    if (related.length > 0) {
+      const relatedFiltered = related.filter(t => t.id !== track.id);
+      setSearchResults([track, ...relatedFiltered]);
+      player.setQueue([track, ...relatedFiltered]);
+    } else {
+      setSearchResults([track]);
+      player.setQueue([track]);
+    }
+    
+    // Switch to search results view
+    setActiveView("search-results");
+  }, [player]);
+
   // Inject the exhausted-queue handler: fetch related tracks and keep playing
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
@@ -128,6 +157,7 @@ export default function App() {
           playlists={playlists}
           onCreatePlaylist={handleCreatePlaylist}
           onDeletePlaylist={handleDeletePlaylist}
+          recentlyPlayed={recentlyPlayed}
         />
 
         {/* Main content */}
@@ -146,6 +176,7 @@ export default function App() {
           onRemoveFromPlaylist={handleRemoveFromPlaylist}
           activePlaylist={activePlaylist}
           onOpenSearch={() => setIsSearchOpen(true)}
+          searchResults={searchResults}
         />
 
         {/* Now playing panel */}
@@ -249,7 +280,7 @@ export default function App() {
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onSelectTrack={(track) => player.playArbitraryTrack(track)}
+        onSelectTrack={handleSelectFromSearch}
         liked={player.liked}
         onToggleLike={player.toggleLike}
       />

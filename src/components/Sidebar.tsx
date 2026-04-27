@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Search, Library, Plus, Heart, X, ListMusic, Trash2 } from "lucide-react";
+import { Home, Library, Plus, Heart, X, ListMusic, Trash2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../../public/images/spotifylogo.png';
@@ -15,6 +15,7 @@ interface SidebarProps {
   playlists: Playlist[];
   onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (id: string) => void;
+  recentlyPlayed: Track[];
 }
 
 export default function Sidebar({
@@ -27,6 +28,7 @@ export default function Sidebar({
   playlists,
   onCreatePlaylist,
   onDeletePlaylist,
+  recentlyPlayed,
 }: SidebarProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -160,12 +162,15 @@ export default function Sidebar({
             Recents
           </p>
           <div className="space-y-1">
-            {queue.map((track, i) => (
+            {recentlyPlayed.map((track) => {
+              const trackIndex = queue.findIndex(t => t.id === track.id);
+              const isCurrentTrack = trackIndex === currentIndex;
+              return (
               <button
                 key={track.id}
-                onClick={() => onSelect(i)}
+                onClick={() => trackIndex >= 0 && onSelect(trackIndex)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group text-left ${
-                  i === currentIndex
+                  isCurrentTrack
                     ? "bg-zinc-800 text-[#1DB954]"
                     : "hover:bg-zinc-800/60 text-zinc-300 hover:text-white"
                 }`}
@@ -179,14 +184,14 @@ export default function Sidebar({
                       (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
                     }}
                   />
-                  {i === currentIndex && (
+                  {isCurrentTrack && (
                     <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
                       <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
                     </div>
                   )}
                 </div>
                 <div className="overflow-hidden">
-                  <p className={`text-sm font-medium truncate ${i === currentIndex ? "text-[#1DB954]" : ""}`}>
+                  <p className={`text-sm font-medium truncate ${isCurrentTrack ? "text-[#1DB954]" : ""}`}>
                     {track.title}
                   </p>
                   <p className="text-xs text-zinc-500 truncate">{track.artist}</p>
@@ -195,7 +200,8 @@ export default function Sidebar({
                   <Heart size={10} className="ml-auto shrink-0 text-[#1DB954] fill-[#1DB954]" />
                 )}
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
       </aside>
