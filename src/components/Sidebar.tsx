@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Home, Search, Library, Music, Plus, Heart, X, ListMusic, Trash2 } from "lucide-react";
+import { Home, Search, Library, Plus, Heart, X, ListMusic, Trash2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
+import Logo from '../../public/images/spotifylogo.png';
+
 
 interface SidebarProps {
   queue: Track[];
@@ -43,10 +45,11 @@ export default function Sidebar({
         {/* Logo */}
         <div className="px-6 pt-7 pb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center">
-              <Music size={16} className="text-black" />
+            <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center">
+              {/* <Music size={16} className="text-black" /> */}
+              <img className="w-full h-full object-contain opacity-35" src={Logo} alt="Logo" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Spotify Premium</span>
+            <span className="text-xl font-bold tracking-tight">Spatify Premium</span>
           </div>
         </div>
 
