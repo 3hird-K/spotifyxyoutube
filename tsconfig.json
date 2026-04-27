@@ -15,8 +15,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path mapping */
     "baseUrl": ".",
+    "ignoreDeprecations": "5.0", 
     "paths": {
       "@/*": ["src/*"]
     },
@@ -27,5 +27,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "vite-env.d.ts"]
 }
