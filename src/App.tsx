@@ -286,10 +286,11 @@ export default function App() {
           onToggleShuffle={player.toggleShuffle}
           onToggleRepeat={player.toggleRepeat}
           onToggleLike={player.toggleLike}
+          onTrackDetail={handleTrackDetail}
         />
 
         {/* Mobile Nav (Bottom) */}
-        <nav className="md:hidden bg-zinc-900 border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
+        <nav className="md:hidden bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center justify-around h-16 px-4">
             {[
               { icon: Home, label: "Home", view: "home" },

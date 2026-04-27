@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Home, Library, Plus, Heart, ListMusic, Trash2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
-import Logo from '../../public/images/spotifylogo.png';
+import Logo from '../public/images/spotifylogo.png';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,11 +77,10 @@ export default function Sidebar({
             <button
               key={view}
               onClick={() => setActiveView(view)}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-                activeView === view
-                  ? "text-white bg-zinc-800"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-              }`}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${activeView === view
+                ? "text-white bg-zinc-800"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                }`}
             >
               <Icon size={22} />
               {label}
@@ -95,11 +94,10 @@ export default function Sidebar({
         <div className="px-3 space-y-1">
           <button
             onClick={() => setActiveView("liked")}
-            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-              activeView === "liked"
-                ? "text-white bg-zinc-800"
-                : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-            }`}
+            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${activeView === "liked"
+              ? "text-white bg-zinc-800"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+              }`}
           >
             <span className="w-6 h-6 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
               <Heart size={12} className="text-white fill-white" />
@@ -136,11 +134,10 @@ export default function Sidebar({
                   <div key={pl.id} className="group flex items-center">
                     <button
                       onClick={() => setActiveView(`playlist:${pl.id}`)}
-                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${
-                        activeView === `playlist:${pl.id}`
-                          ? "text-white bg-zinc-800"
-                          : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                      }`}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${activeView === `playlist:${pl.id}`
+                        ? "text-white bg-zinc-800"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                        }`}
                     >
                       <span className="w-6 h-6 rounded bg-zinc-800 flex items-center justify-center shrink-0">
                         <ListMusic size={11} className="text-zinc-400" />
@@ -188,41 +185,40 @@ export default function Sidebar({
               const trackIndex = queue.findIndex(t => t.id === track.id);
               const isCurrentTrack = trackIndex === currentIndex;
               return (
-              <button
-                key={track.id}
-                onClick={() => onTrackDetail(track)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group text-left ${
-                  isCurrentTrack
+                <button
+                  key={track.id}
+                  onClick={() => onTrackDetail(track)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group text-left ${isCurrentTrack
                     ? "bg-zinc-800 text-[#1DB954]"
                     : "hover:bg-zinc-800/60 text-zinc-300 hover:text-white"
-                }`}
-              >
-                <div className="relative shrink-0">
-                  <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="w-9 h-9 rounded object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-                    }}
-                  />
-                  {isCurrentTrack && (
-                    <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
-                      <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
-                    </div>
+                    }`}
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={track.thumbnail}
+                      alt={track.title}
+                      className="w-9 h-9 rounded object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
+                      }}
+                    />
+                    {isCurrentTrack && (
+                      <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
+                        <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className={`text-sm font-medium truncate ${isCurrentTrack ? "text-[#1DB954]" : ""}`}>
+                      {track.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 truncate">{track.artist}</p>
+                  </div>
+                  {liked.has(track.id) && (
+                    <Heart size={10} className="ml-auto shrink-0 text-[#1DB954] fill-[#1DB954]" />
                   )}
-                </div>
-                <div className="overflow-hidden">
-                  <p className={`text-sm font-medium truncate ${isCurrentTrack ? "text-[#1DB954]" : ""}`}>
-                    {track.title}
-                  </p>
-                  <p className="text-xs text-zinc-500 truncate">{track.artist}</p>
-                </div>
-                {liked.has(track.id) && (
-                  <Heart size={10} className="ml-auto shrink-0 text-[#1DB954] fill-[#1DB954]" />
-                )}
-              </button>
-            );
+                </button>
+              );
             })}
           </div>
         </ScrollArea>

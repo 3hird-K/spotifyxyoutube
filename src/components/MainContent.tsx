@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -240,7 +241,7 @@ export default function MainContent({
           </div>
         ) : (
           <div className="space-y-1">
-            <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
+            <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
               <span className="w-8 text-center">#</span>
               <span>Title</span>
               <span className="flex items-center gap-1"><Clock size={13} /></span>
@@ -541,7 +542,7 @@ function TrackRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 items-center px-4 py-2.5 rounded-xl group cursor-pointer transition-colors ${isCurrent
+      className={`grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_1fr_auto_auto] gap-2 sm:gap-4 items-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl group cursor-pointer transition-colors ${isCurrent
         ? "bg-[#1DB954]/10 border border-[#1DB954]/20"
         : "hover:bg-zinc-800/60"
         }`}
@@ -590,13 +591,13 @@ function TrackRow({
         </div>
       </div>
 
-      {/* Album */}
-      <div className="hidden lg:block overflow-hidden">
+      {/* Album — hidden on mobile */}
+      <div className="hidden sm:block overflow-hidden">
         <p className="text-sm text-zinc-400 truncate hover:text-white transition-colors">{track.album}</p>
       </div>
 
-      {/* Duration + Like */}
-      <div className="flex items-center gap-3">
+      {/* Duration + Like + Actions (combined on mobile) */}
+      <div className="flex items-center gap-1 sm:gap-3 justify-end">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -604,7 +605,7 @@ function TrackRow({
                 variant="ghost"
                 size="icon-xs"
                 onClick={(e) => { e.stopPropagation(); onToggleLike(track); }}
-                className={`transition-all hover:scale-110 opacity-0 group-hover:opacity-100 hover:bg-zinc-700/50 ${isLiked ? "opacity-100 text-[#1DB954]" : "text-zinc-600"
+                className={`transition-all hover:scale-110 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-zinc-700/50 ${isLiked ? "!opacity-100 text-[#1DB954]" : "text-zinc-600"
                   }`}
               />
             }
@@ -613,11 +614,82 @@ function TrackRow({
           </TooltipTrigger>
           <TooltipContent>{isLiked ? "Remove from Liked" : "Add to Liked"}</TooltipContent>
         </Tooltip>
-        <span className="text-sm text-zinc-500 tabular-nums">{formatTime(track.duration)}</span>
+        <span className="text-xs sm:text-sm text-zinc-500 tabular-nums">{formatTime(track.duration)}</span>
+
+        {/* Actions — inline on mobile, separate column on desktop */}
+        <div className="flex items-center gap-1 sm:hidden" onClick={(e) => e.stopPropagation()}>
+          {/* YouTube link */}
+          <a
+            href={track.youtubeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-600 hover:text-red-500 transition-colors p-1 inline-flex"
+          >
+            <ExternalLink size={13} />
+          </a>
+          {/* Add to playlist (mobile) */}
+          {isInPlaylist && activePlaylistId ? (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => onRemoveFromPlaylist(activePlaylistId, track.id)}
+              className="text-zinc-600 hover:text-red-400 transition-colors hover:bg-zinc-700/50"
+            >
+              <Trash2 size={13} />
+            </Button>
+          ) : (
+            playlists.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button className="text-zinc-600 hover:text-[#1DB954] transition-colors p-1 inline-flex">
+                      <ListPlus size={13} />
+                    </button>
+                  }
+                />
+                <DropdownMenuContent
+                  align="end"
+                  side="top"
+                  sideOffset={8}
+                  className="bg-zinc-800 border-zinc-700 min-w-44"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
+                      Add to playlist
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  {playlists.map((pl) => {
+                    const alreadyIn = pl.tracks.some((t) => t.id === track.id);
+                    return (
+                      <DropdownMenuItem
+                        key={pl.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!alreadyIn) onAddToPlaylist(pl.id, track);
+                        }}
+                        className={`flex items-center gap-2 cursor-pointer ${alreadyIn
+                          ? "text-zinc-500 cursor-default"
+                          : "text-zinc-200"
+                          }`}
+                      >
+                        {alreadyIn ? (
+                          <Check size={12} className="text-[#1DB954] shrink-0" />
+                        ) : (
+                          <ListPlus size={12} className="text-zinc-500 shrink-0" />
+                        )}
+                        <span className="truncate">{pl.name}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1.5 w-20 justify-center" onClick={(e) => e.stopPropagation()}>
+      {/* Actions — desktop only column */}
+      <div className="hidden sm:flex items-center gap-1.5 w-20 justify-center" onClick={(e) => e.stopPropagation()}>
         {/* YouTube link */}
         <Tooltip>
           <TooltipTrigger
@@ -653,36 +725,27 @@ function TrackRow({
             <TooltipContent>Remove from playlist</TooltipContent>
           </Tooltip>
         ) : (
-          /* Add to playlist dropdown */
+          /* Add to playlist dropdown — no nested tooltip/trigger conflict */
           playlists.length > 0 && (
             <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-zinc-600 hover:text-[#1DB954] transition-colors hover:bg-zinc-700/50"
-                        />
-                      }
-                    />
-                  }
-                >
-                  <ListPlus size={13} />
-                </TooltipTrigger>
-                <TooltipContent>Add to playlist</TooltipContent>
-              </Tooltip>
+              <DropdownMenuTrigger
+                render={
+                  <button className="text-zinc-600 hover:text-[#1DB954] transition-colors p-1.5 rounded-md hover:bg-zinc-700/50 inline-flex">
+                    <ListPlus size={13} />
+                  </button>
+                }
+              />
               <DropdownMenuContent
                 align="end"
                 side="top"
                 sideOffset={8}
                 className="bg-zinc-800 border-zinc-700 min-w-44"
               >
-                <DropdownMenuLabel className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
-                  Add to playlist
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
+                    Add to playlist
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 {playlists.map((pl) => {
                   const alreadyIn = pl.tracks.some((t) => t.id === track.id);
                   return (
@@ -692,7 +755,7 @@ function TrackRow({
                         e.stopPropagation();
                         if (!alreadyIn) onAddToPlaylist(pl.id, track);
                       }}
-                      className={`flex items-center gap-2 ${alreadyIn
+                      className={`flex items-center gap-2 cursor-pointer ${alreadyIn
                         ? "text-zinc-500 cursor-default"
                         : "text-zinc-200"
                         }`}

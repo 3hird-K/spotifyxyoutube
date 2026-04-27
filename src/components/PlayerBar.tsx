@@ -37,6 +37,7 @@ interface PlayerBarProps {
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
   onToggleLike: (track: Track) => void;
+  onTrackDetail?: (track: Track) => void;
 }
 
 export default function PlayerBar({
@@ -58,6 +59,7 @@ export default function PlayerBar({
   onToggleShuffle,
   onToggleRepeat,
   onToggleLike,
+  onTrackDetail,
 }: PlayerBarProps) {
 
   const isLiked = track ? liked.has(track.id) : false;
@@ -73,14 +75,18 @@ export default function PlayerBar({
               <img
                 src={track.thumbnail}
                 alt={track.title}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-md shrink-0"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-md shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => onTrackDetail?.(track)}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
                 }}
               />
-              <div className="overflow-hidden min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{track.title}</p>
-                <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+              <div
+                className="overflow-hidden min-w-0 cursor-pointer"
+                onClick={() => onTrackDetail?.(track)}
+              >
+                <p className="text-sm font-semibold text-white truncate hover:underline">{track.title}</p>
+                <p className="text-xs text-zinc-400 truncate hover:text-zinc-300 transition-colors">{track.artist}</p>
               </div>
             </>
           ) : (
