@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import YouTube from "react-youtube";
 import { usePlayer } from "./hooks/usePlayer";
 import Sidebar from "./components/Sidebar";
@@ -7,12 +7,67 @@ import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
 import { PanelRightOpen, PanelRightClose, Home, Search, Library } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
+import { Playlist } from "./data/playlists";
+import { Track } from "./data/tracks";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [showNowPlaying, setShowNowPlaying] = useState(true);
 
-  // Initialize with an empty queue initially, tracks will be fetched and managed dynamically
+  // ── Playlist state (persisted to localStorage) ───────────────────────────
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => {
+    try {
+      const stored = localStorage.getItem("spotube_playlists");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("spotube_playlists", JSON.stringify(playlists));
+  }, [playlists]);
+
+  const handleCreatePlaylist = useCallback((name: string) => {
+    const pl: Playlist = {
+      id: `pl_${Date.now()}`,
+      name,
+      tracks: [],
+      createdAt: Date.now(),
+    };
+    setPlaylists((prev) => [...prev, pl]);
+  }, []);
+
+  const handleDeletePlaylist = useCallback((id: string) => {
+    setPlaylists((prev) => prev.filter((pl) => pl.id !== id));
+  }, []);
+
+  const handleAddToPlaylist = useCallback((playlistId: string, track: Track) => {
+    setPlaylists((prev) =>
+      prev.map((pl) =>
+        pl.id === playlistId
+          ? {
+              ...pl,
+              tracks: pl.tracks.find((t) => t.id === track.id)
+                ? pl.tracks
+                : [...pl.tracks, track],
+            }
+          : pl
+      )
+    );
+  }, []);
+
+  const handleRemoveFromPlaylist = useCallback((playlistId: string, trackId: string) => {
+    setPlaylists((prev) =>
+      prev.map((pl) =>
+        pl.id === playlistId
+          ? { ...pl, tracks: pl.tracks.filter((t) => t.id !== trackId) }
+          : pl
+      )
+    );
+  }, []);
+
+  // ── Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([]);
 
   // Inject the exhausted-queue handler: fetch related tracks and keep playing
@@ -26,19 +81,23 @@ export default function App() {
       if (related.length === 0) return;
 
       player.setQueue((prev) => {
-        // Deduplicate by id before appending
         const existingIds = new Set(prev.map((t) => t.id));
         const fresh = related.filter((t) => !existingIds.has(t.id));
         if (fresh.length === 0) return prev;
 
-        const nextIdx = prev.length; // index of the first newly appended track
-        // Advance after React has committed the queue update
+        const nextIdx = prev.length;
         setTimeout(() => player.selectTrack(nextIdx), 0);
 
         return [...prev, ...fresh];
       });
     };
   }); // runs every render so the closure always has the latest player state
+
+  // Derive the active playlist (if viewing one)
+  const activePlaylistId = activeView.startsWith("playlist:")
+    ? activeView.replace("playlist:", "")
+    : null;
+  const activePlaylist = playlists.find((pl) => pl.id === activePlaylistId) ?? null;
 
   return (
     <div className="flex flex-col h-dvh bg-black text-white overflow-hidden">
@@ -52,6 +111,9 @@ export default function App() {
           liked={player.liked}
           activeView={activeView}
           setActiveView={setActiveView}
+          playlists={playlists}
+          onCreatePlaylist={handleCreatePlaylist}
+          onDeletePlaylist={handleDeletePlaylist}
         />
 
         {/* Main content */}
@@ -65,6 +127,10 @@ export default function App() {
           onTogglePlay={player.togglePlay}
           onQueueChange={player.setQueue}
           activeView={activeView}
+          playlists={playlists}
+          onAddToPlaylist={handleAddToPlaylist}
+          onRemoveFromPlaylist={handleRemoveFromPlaylist}
+          activePlaylist={activePlaylist}
         />
 
         {/* Now playing panel */}

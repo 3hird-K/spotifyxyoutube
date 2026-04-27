@@ -1,6 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
-import { Search, Play, Pause, Clock, Heart, ExternalLink, Download, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Search, Play, Pause, Clock, Heart, ExternalLink, Download,
+  Loader2, ListPlus, Check, Trash2, ListMusic,
+} from "lucide-react";
 import { Track, GENRES } from "../data/tracks";
+import { Playlist } from "../data/playlists";
 import { formatTime } from "../utils/format";
 import { searchYouTubeMusic } from "../utils/youtube";
 
@@ -14,6 +18,10 @@ interface MainContentProps {
   onTogglePlay: () => void;
   onQueueChange: (tracks: Track[]) => void;
   activeView: string;
+  playlists: Playlist[];
+  onAddToPlaylist: (playlistId: string, track: Track) => void;
+  onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
+  activePlaylist: Playlist | null;
 }
 
 export default function MainContent({
@@ -26,69 +34,97 @@ export default function MainContent({
   onTogglePlay,
   onQueueChange,
   activeView,
+  playlists,
+  onAddToPlaylist,
+  onRemoveFromPlaylist,
+  activePlaylist,
 }: MainContentProps) {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [apiTracks, setApiTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const isPlaylistView = activeView.startsWith("playlist:");
+
   useEffect(() => {
-    if (activeView === "liked") return;
+    if (activeView === "liked" || isPlaylistView) return;
 
     const fetchTracks = async () => {
       setIsLoading(true);
-      const query = search.trim() || (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
+      const query =
+        search.trim() ||
+        (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
       const results = await searchYouTubeMusic(query);
       setApiTracks(results);
-      onQueueChange(results); // ← sync player queue with visible tracks
+      onQueueChange(results);
       setIsLoading(false);
     };
 
     const debounce = setTimeout(fetchTracks, 600);
     return () => clearTimeout(debounce);
-  }, [search, selectedGenre, activeView, onQueueChange]);
+  }, [search, selectedGenre, activeView, onQueueChange]); // eslint-disable-line
 
-  const displayTracks = activeView === "liked"
-    ? queue.filter((t) => liked.has(t.id)) // Assuming liked tracks are pushed to queue or saved elsewhere, ideally we would need an overall store but we'll use apiTracks + queue for now
-    : apiTracks;
+  // Determine tracks to display
+  let displayTracks: Track[] = [];
+  if (activeView === "liked") {
+    displayTracks = queue.filter((t) => liked.has(t.id));
+  } else if (isPlaylistView && activePlaylist) {
+    displayTracks = activePlaylist.tracks;
+  } else {
+    displayTracks = apiTracks;
+  }
 
-  const filtered = displayTracks; // Filtering is handled via API now
+  const pageTitle = isPlaylistView
+    ? activePlaylist?.name ?? "Playlist"
+    : activeView === "liked"
+    ? "Liked Songs"
+    : activeView === "search"
+    ? "Search Music"
+    : "Trending Music";
 
-  const pageTitle =
-    activeView === "liked"
-      ? "Liked Songs"
-      : activeView === "search"
-      ? "Search Music"
-      : "Trending Music";
+  const emptyMessage = isPlaylistView
+    ? { emoji: "🎵", title: "This playlist is empty", sub: "Add songs from the track list" }
+    : activeView === "liked"
+    ? { emoji: "💚", title: "No liked songs yet", sub: "Hit the heart on any track to save it here" }
+    : { emoji: "🔍", title: "No tracks found", sub: "Try a different search or genre" };
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-8 pt-6 pb-4 border-b border-zinc-800/50">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">
-              {filtered.length} track{filtered.length !== 1 ? "s" : ""}
-              {activeView === "liked" && liked.size === 0 && " — heart some songs!"}
-            </p>
+          <div className="flex items-center gap-3">
+            {isPlaylistView && (
+              <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-700 flex items-center justify-center shrink-0">
+                <ListMusic size={18} className="text-white" />
+              </span>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
+                {activeView === "liked" && liked.size === 0 && " — heart some songs!"}
+              </p>
+            </div>
           </div>
 
-          {/* Search */}
-          <div className="sm:ml-auto relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search tracks, artists…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-64 pl-9 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-full text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#1DB954] transition-colors"
-            />
-          </div>
+          {/* Search — only on browseable views */}
+          {!isPlaylistView && (
+            <div className="sm:ml-auto relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search tracks, artists…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-64 pl-9 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-full text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#1DB954] transition-colors"
+              />
+            </div>
+          )}
         </div>
 
         {/* Genre filters */}
-        {activeView !== "liked" && (
+        {!activeView.startsWith("liked") && !isPlaylistView && (
           <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
             {GENRES.map((g) => (
               <button
@@ -125,11 +161,11 @@ export default function MainContent({
             <Loader2 className="animate-spin mb-4" size={32} />
             <p className="text-lg font-semibold text-zinc-500">Loading YouTube tracks...</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : displayTracks.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
-            <p className="text-4xl mb-3">🎵</p>
-            <p className="text-lg font-semibold text-zinc-500">No tracks found</p>
-            <p className="text-sm mt-1">Try a different search or genre</p>
+            <p className="text-4xl mb-3">{emptyMessage.emoji}</p>
+            <p className="text-lg font-semibold text-zinc-500">{emptyMessage.title}</p>
+            <p className="text-sm mt-1">{emptyMessage.sub}</p>
           </div>
         ) : (
           <>
@@ -138,14 +174,12 @@ export default function MainContent({
               <span className="w-8 text-center">#</span>
               <span>Title</span>
               <span className="hidden lg:block">Album</span>
-              <span className="flex items-center gap-1">
-                <Clock size={13} />
-              </span>
-              <span className="w-16 text-center">Links</span>
+              <span className="flex items-center gap-1"><Clock size={13} /></span>
+              <span className="w-20 text-center">Actions</span>
             </div>
 
             <div className="space-y-1">
-              {filtered.map((track, idx) => {
+              {displayTracks.map((track, idx) => {
                 const isCurrent = currentTrack?.id === track.id;
                 const isTrackPlaying = isCurrent && isPlaying;
                 const isLiked = liked.has(track.id);
@@ -161,6 +195,11 @@ export default function MainContent({
                     onSelect={onSelect}
                     onTogglePlay={onTogglePlay}
                     onToggleLike={onToggleLike}
+                    playlists={playlists}
+                    onAddToPlaylist={onAddToPlaylist}
+                    isInPlaylist={isPlaylistView}
+                    activePlaylistId={isPlaylistView ? activeView.replace("playlist:", "") : null}
+                    onRemoveFromPlaylist={onRemoveFromPlaylist}
                   />
                 );
               })}
@@ -169,7 +208,6 @@ export default function MainContent({
         )}
       </div>
 
-      {/* Footer padding */}
       <div className="h-8" />
     </main>
   );
@@ -196,16 +234,12 @@ function FeaturedBanner({
         src={track.thumbnail}
         alt={track.title}
         className="absolute inset-0 w-full h-full object-cover"
-        onError={(e) => {
-          (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-        }}
+        onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-cover.jpg"; }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
       <div className="relative p-6 flex items-end justify-between w-full">
         <div>
-          <p className="text-xs text-[#1DB954] font-bold uppercase tracking-widest mb-1">
-            🔥 Featured
-          </p>
+          <p className="text-xs text-[#1DB954] font-bold uppercase tracking-widest mb-1">🔥 Featured</p>
           <h2 className="text-3xl font-black text-white">{track.title}</h2>
           <p className="text-zinc-300 mt-0.5">{track.artist}</p>
         </div>
@@ -235,6 +269,11 @@ function TrackRow({
   onSelect,
   onTogglePlay,
   onToggleLike,
+  playlists,
+  onAddToPlaylist,
+  isInPlaylist,
+  activePlaylistId,
+  onRemoveFromPlaylist,
 }: {
   track: Track;
   idx: number;
@@ -244,7 +283,27 @@ function TrackRow({
   onSelect: (track: Track) => void;
   onTogglePlay: () => void;
   onToggleLike: (id: string) => void;
+  playlists: Playlist[];
+  onAddToPlaylist: (playlistId: string, track: Track) => void;
+  isInPlaylist: boolean;
+  activePlaylistId: string | null;
+  onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
 }) {
+  const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showPlaylistMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowPlaylistMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showPlaylistMenu]);
+
   return (
     <div
       className={`grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 items-center px-4 py-2.5 rounded-xl group cursor-pointer transition-colors ${
@@ -281,9 +340,7 @@ function TrackRow({
             src={track.thumbnail}
             alt={track.title}
             className="w-10 h-10 rounded-lg object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-            }}
+            onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-cover.jpg"; }}
           />
         </div>
         <div className="overflow-hidden">
@@ -296,18 +353,13 @@ function TrackRow({
 
       {/* Album */}
       <div className="hidden lg:block overflow-hidden">
-        <p className="text-sm text-zinc-400 truncate hover:text-white transition-colors">
-          {track.album}
-        </p>
+        <p className="text-sm text-zinc-400 truncate hover:text-white transition-colors">{track.album}</p>
       </div>
 
       {/* Duration + Like */}
       <div className="flex items-center gap-3">
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleLike(track.id);
-          }}
+          onClick={(e) => { e.stopPropagation(); onToggleLike(track.id); }}
           className={`transition-all hover:scale-110 opacity-0 group-hover:opacity-100 ${
             isLiked ? "opacity-100 text-[#1DB954]" : "text-zinc-600"
           }`}
@@ -317,36 +369,95 @@ function TrackRow({
         <span className="text-sm text-zinc-500 tabular-nums">{formatTime(track.duration)}</span>
       </div>
 
-      {/* External links */}
-      <div className="flex items-center gap-2 w-16 justify-center">
+      {/* Actions */}
+      <div className="flex items-center gap-1.5 w-20 justify-center" onClick={(e) => e.stopPropagation()}>
+        {/* YouTube link */}
         <a
           href={track.youtubeUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
           title="Watch on YouTube"
-          className="text-zinc-600 hover:text-red-500 transition-colors"
+          className="text-zinc-600 hover:text-red-500 transition-colors p-1"
         >
           <ExternalLink size={13} />
         </a>
+
+        {/* Download → opens Y2mate with video pre-filled */}
         <a
-          href={`https://v16.www-y2mate.com/youtube/${track.youtubeId}`}
+          href={`https://www.y2mate.com/youtube/${track.youtubeId}`}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title="Download MP3/MP4"
-          className="text-zinc-600 hover:text-amber-400 transition-colors"
+          title="Download MP3/MP4 via Y2mate"
+          className="text-zinc-600 hover:text-amber-400 transition-colors p-1"
         >
           <Download size={13} />
         </a>
+
+        {/* Remove from playlist (when inside playlist view) */}
+        {isInPlaylist && activePlaylistId ? (
+          <button
+            onClick={() => onRemoveFromPlaylist(activePlaylistId, track.id)}
+            title="Remove from playlist"
+            className="text-zinc-600 hover:text-red-400 transition-colors p-1"
+          >
+            <Trash2 size={13} />
+          </button>
+        ) : (
+          /* Add to playlist menu */
+          playlists.length > 0 && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowPlaylistMenu((v) => !v); }}
+                title="Add to playlist"
+                className="text-zinc-600 hover:text-[#1DB954] transition-colors p-1"
+              >
+                <ListPlus size={13} />
+              </button>
+
+              {showPlaylistMenu && (
+                <div className="absolute right-0 bottom-7 z-30 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl py-1.5 min-w-44">
+                  <p className="text-[10px] text-zinc-500 uppercase font-bold px-3 py-1 tracking-wider">
+                    Add to playlist
+                  </p>
+                  {playlists.map((pl) => {
+                    const alreadyIn = pl.tracks.some((t) => t.id === track.id);
+                    return (
+                      <button
+                        key={pl.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!alreadyIn) onAddToPlaylist(pl.id, track);
+                          setShowPlaylistMenu(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                          alreadyIn
+                            ? "text-zinc-500 cursor-default"
+                            : "text-zinc-200 hover:bg-zinc-700"
+                        }`}
+                      >
+                        {alreadyIn ? (
+                          <Check size={12} className="text-[#1DB954] shrink-0" />
+                        ) : (
+                          <ListPlus size={12} className="text-zinc-500 shrink-0" />
+                        )}
+                        <span className="truncate">{pl.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        )}
+
+        {/* Spotify link */}
         {track.spotifyUrl && (
           <a
             href={track.spotifyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
             title="Open in Spotify"
-            className="text-zinc-600 hover:text-[#1DB954] transition-colors"
+            className="text-zinc-600 hover:text-[#1DB954] transition-colors p-1"
           >
             <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
               <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>

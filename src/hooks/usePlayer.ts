@@ -18,8 +18,6 @@ export function usePlayer(initialTracks: Track[]) {
 
   const playerRef = useRef<YouTubePlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const accumulatedRef = useRef<number>(0);
   // Ref so onPlayerStateChange can call handleNext without a circular dep
   const handleNextRef = useRef<(auto?: boolean) => void>(() => {});
   // Injected by App — called when queue is exhausted (non-repeat). Receives
@@ -105,14 +103,6 @@ export function usePlayer(initialTracks: Track[]) {
       }
     }
   }, [isMuted]);
-
-  const handlePlay = useCallback(() => {
-    setIsPlaying(true);
-  }, []);
-
-  const handlePause = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
 
   const togglePlay = useCallback(() => {
     setIsPlaying((p) => !p);
