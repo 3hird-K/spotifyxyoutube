@@ -139,7 +139,7 @@ export default function MainContent({
     return (
       <LibraryView
         playlists={playlists}
-        likedCount={likedTracks.length}
+        likedTracks={likedTracks}
         recentlyPlayed={recentlyPlayed}
         onSelectView={(view) => setActiveView(view)}
         onTrackDetail={onTrackDetail}
@@ -204,8 +204,8 @@ export default function MainContent({
                 variant={selectedGenre === g ? "default" : "secondary"}
                 onClick={() => setSelectedGenre(g)}
                 className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors h-auto ${selectedGenre === g
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                   }`}
               >
                 {g}
@@ -240,10 +240,9 @@ export default function MainContent({
           </div>
         ) : (
           <div className="space-y-1">
-            <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2">
+            <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
               <span className="w-8 text-center">#</span>
               <span>Title</span>
-              <span className="hidden lg:block">Album</span>
               <span className="flex items-center gap-1"><Clock size={13} /></span>
               <span className="w-20 text-center">Actions</span>
             </div>
@@ -276,14 +275,14 @@ export default function MainContent({
 
 function LibraryView({
   playlists,
-  likedCount,
+  likedTracks,
   recentlyPlayed,
   onSelectView,
   onTrackDetail,
   onPlayPlaylist,
 }: {
   playlists: Playlist[];
-  likedCount: number;
+  likedTracks: Track[];
   recentlyPlayed: Track[];
   onSelectView: (v: string) => void;
   onTrackDetail: (t: Track) => void;
@@ -295,20 +294,20 @@ function LibraryView({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {/* Liked Songs Card */}
-        <div 
+        <div
           onClick={() => onSelectView("liked")}
-          className="relative group aspect-square rounded-xl bg-gradient-to-br from-indigo-600 to-purple-800 p-6 flex flex-col justify-end cursor-pointer hover:shadow-2xl transition-all"
+          className="relative group aspect-square rounded-xl bg-gradient-to-br from-indigo-600 to-purple-800 p-6 flex flex-col justify-end cursor-pointer hover:shadow-2xl transition-all overflow-hidden"
         >
           <div className="absolute top-4 right-4">
             <Heart size={32} className="text-white fill-white opacity-20 group-hover:opacity-40 transition-opacity" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">Liked Songs</h2>
-            <p className="text-indigo-100 font-medium">{likedCount} liked song{likedCount !== 1 ? "s" : ""}</p>
+            <p className="text-indigo-100 font-medium">{likedTracks.length} liked song{likedTracks.length !== 1 ? "s" : ""}</p>
           </div>
-          <button 
+          <button
             className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl hover:scale-105"
-            onClick={(e) => { e.stopPropagation(); /* Logic to play all liked handled via parent if needed */ }}
+            onClick={(e) => { e.stopPropagation(); onPlayPlaylist(likedTracks); }}
           >
             <Play size={24} className="text-black ml-1 fill-black" />
           </button>
@@ -316,22 +315,28 @@ function LibraryView({
 
         {/* Playlists */}
         {playlists.map((pl) => (
-          <div 
-            key={pl.id} 
+          <div
+            key={pl.id}
             onClick={() => onSelectView(`playlist:${pl.id}`)}
-            className="relative group p-4 rounded-xl bg-zinc-900/50 hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-800/50"
+            className="relative group p-4 rounded-xl bg-zinc-900/50 hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-800/50 overflow-hidden"
           >
-            <div className="aspect-square rounded-lg bg-zinc-800 flex items-center justify-center mb-4 shadow-lg overflow-hidden relative">
-               <ListMusic size={48} className="text-zinc-700" />
-               <button 
-                className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl hover:scale-105"
+            <div className="aspect-square rounded-lg overflow-hidden mb-4 shadow-lg relative">
+              {pl.tracks[0]?.thumbnail ? (
+                <img src={pl.tracks[0].thumbnail} alt={pl.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+              ) : (
+                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                  <ListMusic size={48} className="text-zinc-700" />
+                </div>
+              )}
+              <button
+                className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl hover:scale-105"
                 onClick={(e) => { e.stopPropagation(); onPlayPlaylist(pl.tracks); }}
               >
                 <Play size={20} className="text-black ml-1 fill-black" />
               </button>
             </div>
-            <h3 className="text-white font-bold truncate">{pl.name}</h3>
-            <p className="text-zinc-500 text-sm">{pl.tracks.length} tracks</p>
+            <h3 className="text-white font-bold truncate overflow-hidden" title={pl.name}>{pl.name}</h3>
+            <p className="text-zinc-500 text-sm truncate overflow-hidden" title={`${pl.tracks.length} tracks`}>{pl.tracks.length} tracks</p>
           </div>
         ))}
       </div>
@@ -435,20 +440,20 @@ function TrackDetailView({
         <div className="space-y-1">
           {recommendedTracks.map((t, idx) => (
             <TrackRow
-               key={t.id}
-               track={t}
-               idx={idx}
-               isCurrent={false}
-               isTrackPlaying={false}
-               isLiked={liked.has(t.id)}
-               onSelect={onSelect}
-               onToggleLike={onToggleLike}
-               playlists={playlists}
-               onAddToPlaylist={onAddToPlaylist}
-               isInPlaylist={false}
-               activePlaylistId={null}
-               onRemoveFromPlaylist={() => {}}
-               onTrackDetail={onTrackDetail}
+              key={t.id}
+              track={t}
+              idx={idx}
+              isCurrent={false}
+              isTrackPlaying={false}
+              isLiked={liked.has(t.id)}
+              onSelect={onSelect}
+              onToggleLike={onToggleLike}
+              playlists={playlists}
+              onAddToPlaylist={onAddToPlaylist}
+              isInPlaylist={false}
+              activePlaylistId={null}
+              onRemoveFromPlaylist={() => { }}
+              onTrackDetail={onTrackDetail}
             />
           ))}
         </div>
@@ -537,8 +542,8 @@ function TrackRow({
   return (
     <div
       className={`grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 items-center px-4 py-2.5 rounded-xl group cursor-pointer transition-colors ${isCurrent
-          ? "bg-[#1DB954]/10 border border-[#1DB954]/20"
-          : "hover:bg-zinc-800/60"
+        ? "bg-[#1DB954]/10 border border-[#1DB954]/20"
+        : "hover:bg-zinc-800/60"
         }`}
       onClick={() => onTrackDetail(track)}
     >
@@ -688,8 +693,8 @@ function TrackRow({
                         if (!alreadyIn) onAddToPlaylist(pl.id, track);
                       }}
                       className={`flex items-center gap-2 ${alreadyIn
-                          ? "text-zinc-500 cursor-default"
-                          : "text-zinc-200"
+                        ? "text-zinc-500 cursor-default"
+                        : "text-zinc-200"
                         }`}
                     >
                       {alreadyIn ? (
