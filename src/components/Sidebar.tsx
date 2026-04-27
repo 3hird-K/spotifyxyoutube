@@ -57,7 +57,7 @@ export default function Sidebar({
         <nav className="px-3 space-y-1">
           {[
             { icon: Home, label: "Home", view: "home" },
-            { icon: Search, label: "Search", view: "search" },
+            // { icon: Search, label: "Search", view: "search" },
             { icon: Library, label: "Your Library", view: "library" },
           ].map(({ icon: Icon, label, view }) => (
             <button
@@ -157,7 +157,7 @@ export default function Sidebar({
         {/* Queue list */}
         <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
           <p className="text-xs text-zinc-500 uppercase font-bold px-3 mb-3 tracking-widest">
-            Queue
+            Recents
           </p>
           <div className="space-y-1">
             {queue.map((track, i) => (

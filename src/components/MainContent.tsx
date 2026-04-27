@@ -22,6 +22,7 @@ interface MainContentProps {
   onAddToPlaylist: (playlistId: string, track: Track) => void;
   onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
   activePlaylist: Playlist | null;
+  onOpenSearch: () => void;
 }
 
 export default function MainContent({
@@ -38,20 +39,18 @@ export default function MainContent({
   onAddToPlaylist,
   onRemoveFromPlaylist,
   activePlaylist,
+  onOpenSearch,
 }: MainContentProps) {
-  const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const shouldFetch = activeView !== "liked" && !isPlaylistView;
 
-  // Build the search query
-  const searchQuery =
-    search.trim() ||
-    (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
+  // Build the search query for trending
+  const trendingQuery = selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music";
 
-  // Use React Query hook for data fetching
-  const { data: apiTracks = [], isLoading } = useSearchMusic(searchQuery, shouldFetch);
+  // Use React Query hook for data fetching (trending only, no manual search)
+  const { data: apiTracks = [], isLoading } = useSearchMusic(trendingQuery, shouldFetch);
 
   // Update queue when API tracks change
   useEffect(() => {
@@ -106,16 +105,16 @@ export default function MainContent({
 
           {/* Search — only on browseable views */}
           {!isPlaylistView && (
-            <div className="sm:ml-auto relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="text"
-                placeholder="Search tracks, artists…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-64 pl-9 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-full text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#1DB954] transition-colors"
-              />
-            </div>
+            <button
+              onClick={onOpenSearch}
+              className="sm:ml-auto flex items-center gap-3 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-full text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 transition-colors"
+            >
+              <Search size={16} />
+              <span>Search tracks, artists…</span>
+              <kbd className="hidden md:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
+                ⌘K
+              </kbd>
+            </button>
           )}
         </div>
 
@@ -140,7 +139,7 @@ export default function MainContent({
       </div>
 
       {/* Featured banner (home view) */}
-      {activeView === "home" && !search && selectedGenre === "All" && apiTracks.length > 0 && (
+      {activeView === "home" && selectedGenre === "All" && apiTracks.length > 0 && (
         <FeaturedBanner
           track={apiTracks[0]}
           isCurrentlyPlaying={currentTrack?.id === apiTracks[0].id && isPlaying}

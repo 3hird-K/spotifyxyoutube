@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import PlayerBar from "./components/PlayerBar";
 import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
+import SearchModal from "./components/SearchModal";
 import { PanelRightOpen, PanelRightClose, Home, Search, Library } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { Playlist } from "./data/playlists";
@@ -13,6 +14,7 @@ import { Track } from "./data/tracks";
 export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [showNowPlaying, setShowNowPlaying] = useState(true);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // ── Playlist state (persisted to localStorage) ───────────────────────────
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
@@ -27,6 +29,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("spotube_playlists", JSON.stringify(playlists));
   }, [playlists]);
+
+  // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleCreatePlaylist = useCallback((name: string) => {
     const pl: Playlist = {
@@ -131,6 +145,7 @@ export default function App() {
           onAddToPlaylist={handleAddToPlaylist}
           onRemoveFromPlaylist={handleRemoveFromPlaylist}
           activePlaylist={activePlaylist}
+          onOpenSearch={() => setIsSearchOpen(true)}
         />
 
         {/* Now playing panel */}
@@ -159,7 +174,7 @@ export default function App() {
         {!showNowPlaying && (
           <button
             onClick={() => setShowNowPlaying(true)}
-            className="hidden lg:flex fixed right-4 bottom-24 z-20 w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg"
+            className="fixed right-4 bottom-24 z-20 hidden lg:flex w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors shadow-lg"
             title="Show Now Playing"
           >
             <PanelRightOpen size={16} />
@@ -229,6 +244,15 @@ export default function App() {
           ))}
         </div>
       </nav>
+
+      {/* Search Modal */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectTrack={(track) => player.playArbitraryTrack(track)}
+        liked={player.liked}
+        onToggleLike={player.toggleLike}
+      />
     </div>
   );
 }

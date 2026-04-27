@@ -22,7 +22,7 @@ export const searchYouTubeMusic = async (query: string): Promise<Track[]> => {
 
   try {
     // 1. CHECK SUPABASE CACHE
-    const { data: cachedResponse, error: dbError } = await supabase
+    const { data: cachedResponse } = await supabase
       .from('youtube_search_cache')
       .select('results, created_at')
       .eq('query', trimmedQuery)
@@ -32,13 +32,13 @@ export const searchYouTubeMusic = async (query: string): Promise<Track[]> => {
     if (cachedResponse) {
       const isFresh = new Date().getTime() - new Date(cachedResponse.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
       if (isFresh) {
-        console.log("🚀 Serving from Supabase Cache");
+        console.log("Serving from Supabase Cache");
         return cachedResponse.results;
       }
     }
 
     // 2. IF NOT IN CACHE, CALL YOUTUBE (Quota cost: 101 units)
-    console.log("☁️ Fetching from YouTube API...");
+    console.log("Fetching from YouTube API...");
     const searchResponse = await axios.get(`${BASE_URL}/search`, {
       params: {
         part: "snippet",
