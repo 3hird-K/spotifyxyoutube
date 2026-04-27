@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface NowPlayingProps {
   track: Track | null;
   liked: Set<string>;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
 }
 
 export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingProps) {
@@ -62,8 +62,8 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => onToggleLike(track.id)}
-                className={`shrink-0 mt-1 transition-all hover:scale-110 active:scale-95 ${
+                onClick={() => onToggleLike(track)}
+                className={`shrink-0 mt-1 transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${
                   isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
                 }`}
               />
@@ -83,7 +83,7 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
         <Button
           variant="ghost"
           onClick={() => setShowLinks((v) => !v)}
-          className="w-full flex items-center justify-between text-zinc-400 hover:text-white transition-colors text-sm font-semibold h-auto py-2 px-0"
+          className="w-full flex items-center justify-between text-zinc-400 hover:text-white transition-colors text-sm font-semibold h-auto py-2 px-0 hover:bg-transparent"
         >
           <span className="flex items-center gap-2">
             <Share2 size={14} />

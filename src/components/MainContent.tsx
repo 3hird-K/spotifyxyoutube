@@ -25,12 +25,14 @@ interface MainContentProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   liked: Set<string>;
+  likedTracks: Track[];
   queue: Track[];
   onSelect: (track: Track) => void;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
   onTogglePlay: () => void;
   onQueueChange: (tracks: Track[]) => void;
   activeView: string;
+  setActiveView: (view: string) => void;
   playlists: Playlist[];
   onAddToPlaylist: (playlistId: string, track: Track) => void;
   onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
@@ -46,12 +48,14 @@ export default function MainContent({
   currentTrack,
   isPlaying,
   liked,
+  likedTracks,
   queue,
   onSelect,
   onToggleLike,
   onTogglePlay,
   onQueueChange,
   activeView,
+  setActiveView,
   playlists,
   onAddToPlaylist,
   onRemoveFromPlaylist,
@@ -101,7 +105,7 @@ export default function MainContent({
   // Determine tracks to display for list views
   let displayTracks: Track[] = [];
   if (activeView === "liked") {
-    displayTracks = queue.filter((t) => liked.has(t.id));
+    displayTracks = likedTracks;
   } else if (activeView === "search-results") {
     displayTracks = searchResults;
   } else if (isPlaylistView && activePlaylist) {
@@ -135,9 +139,16 @@ export default function MainContent({
     return (
       <LibraryView
         playlists={playlists}
-        likedCount={liked.size}
+        likedCount={likedTracks.length}
         recentlyPlayed={recentlyPlayed}
+        onSelectView={(view) => setActiveView(view)}
         onTrackDetail={onTrackDetail}
+        onPlayPlaylist={(tracks) => {
+          if (tracks.length > 0) {
+            onQueueChange(tracks);
+            onSelect(tracks[0]);
+          }
+        }}
       />
     );
   }
@@ -158,9 +169,9 @@ export default function MainContent({
       <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-8 pt-6 pb-4 border-b border-zinc-800/50">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            {isPlaylistView && (
-              <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-700 flex items-center justify-center shrink-0">
-                <ListMusic size={18} className="text-white" />
+            {(isPlaylistView || activeView === "liked") && (
+              <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
+                {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
               </span>
             )}
             <div>
@@ -267,12 +278,16 @@ function LibraryView({
   playlists,
   likedCount,
   recentlyPlayed,
+  onSelectView,
   onTrackDetail,
+  onPlayPlaylist,
 }: {
   playlists: Playlist[];
   likedCount: number;
   recentlyPlayed: Track[];
+  onSelectView: (v: string) => void;
   onTrackDetail: (t: Track) => void;
+  onPlayPlaylist: (tracks: Track[]) => void;
 }) {
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-zinc-950 overflow-y-auto px-8 py-8">
@@ -280,7 +295,10 @@ function LibraryView({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {/* Liked Songs Card */}
-        <div className="relative group aspect-square rounded-xl bg-gradient-to-br from-indigo-600 to-purple-800 p-6 flex flex-col justify-end cursor-pointer hover:shadow-2xl transition-all">
+        <div 
+          onClick={() => onSelectView("liked")}
+          className="relative group aspect-square rounded-xl bg-gradient-to-br from-indigo-600 to-purple-800 p-6 flex flex-col justify-end cursor-pointer hover:shadow-2xl transition-all"
+        >
           <div className="absolute top-4 right-4">
             <Heart size={32} className="text-white fill-white opacity-20 group-hover:opacity-40 transition-opacity" />
           </div>
@@ -288,16 +306,29 @@ function LibraryView({
             <h2 className="text-2xl font-bold text-white">Liked Songs</h2>
             <p className="text-indigo-100 font-medium">{likedCount} liked song{likedCount !== 1 ? "s" : ""}</p>
           </div>
-          <button className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl">
+          <button 
+            className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl hover:scale-105"
+            onClick={(e) => { e.stopPropagation(); /* Logic to play all liked handled via parent if needed */ }}
+          >
             <Play size={24} className="text-black ml-1 fill-black" />
           </button>
         </div>
 
         {/* Playlists */}
         {playlists.map((pl) => (
-          <div key={pl.id} className="group p-4 rounded-xl bg-zinc-900/50 hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-800/50">
-            <div className="aspect-square rounded-lg bg-zinc-800 flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+          <div 
+            key={pl.id} 
+            onClick={() => onSelectView(`playlist:${pl.id}`)}
+            className="relative group p-4 rounded-xl bg-zinc-900/50 hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-800/50"
+          >
+            <div className="aspect-square rounded-lg bg-zinc-800 flex items-center justify-center mb-4 shadow-lg overflow-hidden relative">
                <ListMusic size={48} className="text-zinc-700" />
+               <button 
+                className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all shadow-xl hover:scale-105"
+                onClick={(e) => { e.stopPropagation(); onPlayPlaylist(pl.tracks); }}
+              >
+                <Play size={20} className="text-black ml-1 fill-black" />
+              </button>
             </div>
             <h3 className="text-white font-bold truncate">{pl.name}</h3>
             <p className="text-zinc-500 text-sm">{pl.tracks.length} tracks</p>
@@ -351,7 +382,7 @@ function TrackDetailView({
   onTogglePlay: () => void;
   onSelect: (t: Track) => void;
   liked: Set<string>;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
   recommendedTracks: Track[];
   isLoadingRecommended: boolean;
   playlists: Playlist[];
@@ -386,7 +417,7 @@ function TrackDetailView({
           {isPlaying ? <Pause size={28} className="text-black fill-black" /> : <Play size={28} className="text-black ml-1 fill-black" />}
         </Button>
         <button
-          onClick={() => onToggleLike(track.id)}
+          onClick={() => onToggleLike(track)}
           className={`transition-colors ${liked.has(track.id) ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
         >
           <Heart size={32} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
@@ -495,7 +526,7 @@ function TrackRow({
   isTrackPlaying: boolean;
   isLiked: boolean;
   onSelect: (track: Track) => void;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
   playlists: Playlist[];
   onAddToPlaylist: (playlistId: string, track: Track) => void;
   isInPlaylist: boolean;
@@ -567,8 +598,8 @@ function TrackRow({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                onClick={(e) => { e.stopPropagation(); onToggleLike(track.id); }}
-                className={`transition-all hover:scale-110 opacity-0 group-hover:opacity-100 ${isLiked ? "opacity-100 text-[#1DB954]" : "text-zinc-600"
+                onClick={(e) => { e.stopPropagation(); onToggleLike(track); }}
+                className={`transition-all hover:scale-110 opacity-0 group-hover:opacity-100 hover:bg-zinc-700/50 ${isLiked ? "opacity-100 text-[#1DB954]" : "text-zinc-600"
                   }`}
               />
             }
@@ -608,7 +639,7 @@ function TrackRow({
                   variant="ghost"
                   size="icon-xs"
                   onClick={() => onRemoveFromPlaylist(activePlaylistId, track.id)}
-                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                  className="text-zinc-600 hover:text-red-400 transition-colors hover:bg-zinc-700/50"
                 />
               }
             >
@@ -628,7 +659,7 @@ function TrackRow({
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          className="text-zinc-600 hover:text-[#1DB954] transition-colors"
+                          className="text-zinc-600 hover:text-[#1DB954] transition-colors hover:bg-zinc-700/50"
                         />
                       }
                     />

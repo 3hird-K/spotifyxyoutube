@@ -61,9 +61,8 @@ export default function Sidebar({
         {/* Logo */}
         <div className="px-6 pt-7 pb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center">
-              {/* <Music size={16} className="text-black" /> */}
-              <img className="w-full h-full object-contain opacity-35" src={Logo} alt="Logo" />
+            <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center overflow-hidden">
+              <img className="w-full h-full object-contain opacity-80" src={Logo} alt="Logo" />
             </div>
             <span className="text-xl font-bold tracking-tight">Spatify Premium</span>
           </div>
@@ -157,11 +156,12 @@ export default function Sidebar({
                           <Button
                             variant="ghost"
                             size="icon-xs"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               onDeletePlaylist(pl.id);
                               if (activeView === `playlist:${pl.id}`) setActiveView("home");
                             }}
-                            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 hover:bg-transparent transition-all"
+                            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 hover:bg-zinc-800/50 transition-all"
                           />
                         }
                       >

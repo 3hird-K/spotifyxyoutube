@@ -36,7 +36,7 @@ interface PlayerBarProps {
   onToggleMute: () => void;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
 }
 
 export default function PlayerBar({
@@ -95,8 +95,8 @@ export default function PlayerBar({
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => onToggleLike(track.id)}
-                  className={`shrink-0 ml-1 transition-all hover:scale-110 ${
+                  onClick={() => onToggleLike(track)}
+                  className={`shrink-0 ml-1 transition-all hover:scale-110 hover:bg-zinc-800/50 ${
                     isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
                   }`}
                 />
@@ -120,7 +120,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleShuffle}
-                  className={`hidden sm:flex transition-colors hover:scale-105 ${
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${
                     isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
                   }`}
                 />
@@ -139,7 +139,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onPrev}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
                 />
               }
             >
@@ -153,7 +153,7 @@ export default function PlayerBar({
             onClick={onTogglePlay}
             disabled={!track}
             size="icon"
-            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 shadow-lg hover:bg-white border-none"
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 shadow-lg hover:bg-zinc-100 border-none"
           >
             {isPlaying ? (
               <Pause size={18} className="text-black" fill="black" />
@@ -170,7 +170,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onNext}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105"
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
                 />
               }
             >
@@ -187,7 +187,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleRepeat}
-                  className={`hidden sm:flex transition-colors hover:scale-105 relative ${
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${
                     repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
                   }`}
                 />
@@ -231,7 +231,7 @@ export default function PlayerBar({
                 variant="ghost"
                 size="icon-xs"
                 onClick={onToggleMute}
-                className="text-zinc-400 hover:text-white transition-colors"
+                className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50"
               />
             }
           >

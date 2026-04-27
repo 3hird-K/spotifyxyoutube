@@ -177,12 +177,14 @@ export default function App() {
             currentTrack={player.currentTrack}
             isPlaying={player.isPlaying}
             liked={player.liked}
+            likedTracks={player.likedTracks}
             queue={player.queue}
             onSelect={(track) => player.playArbitraryTrack(track)}
             onToggleLike={player.toggleLike}
             onTogglePlay={player.togglePlay}
             onQueueChange={player.setQueue}
             activeView={activeView}
+            setActiveView={setActiveView}
             playlists={playlists}
             onAddToPlaylist={handleAddToPlaylist}
             onRemoveFromPlaylist={handleRemoveFromPlaylist}
@@ -208,7 +210,7 @@ export default function App() {
                         variant="ghost"
                         size="icon-xs"
                         onClick={() => setShowNowPlaying(false)}
-                        className="text-zinc-600 hover:text-white transition-colors"
+                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50"
                       />
                     }
                   >

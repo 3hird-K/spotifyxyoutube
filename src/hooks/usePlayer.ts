@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Track } from "../data/tracks";
 import type { YouTubeEvent, YouTubePlayer } from "react-youtube";
 
@@ -14,14 +14,29 @@ export function usePlayer(initialTracks: Track[]) {
   const [isMuted, setIsMuted] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("none");
-  const [liked, setLiked] = useState<Set<string>>(new Set());
+
+  // Load liked tracks from localStorage
+  const [likedTracks, setLikedTracks] = useState<Track[]>(() => {
+    try {
+      const stored = localStorage.getItem("spotube_liked_tracks");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Derived Set for O(1) lookups
+  const liked = useMemo(() => new Set(likedTracks.map(t => t.id)), [likedTracks]);
+
+  // Persist liked tracks
+  useEffect(() => {
+    localStorage.setItem("spotube_liked_tracks", JSON.stringify(likedTracks));
+  }, [likedTracks]);
 
   const playerRef = useRef<YouTubePlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Ref so onPlayerStateChange can call handleNext without a circular dep
+  
   const handleNextRef = useRef<(auto?: boolean) => void>(() => {});
-  // Injected by App — called when queue is exhausted (non-repeat). Receives
-  // the last-played track so App can fetch related content and append it.
   const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => {});
 
   const currentTrack = queue[currentIndex] ?? null;
@@ -42,7 +57,6 @@ export function usePlayer(initialTracks: Track[]) {
   }, [isPlaying, volume, isMuted]);
 
   const onPlayerStateChange = useCallback((event: YouTubeEvent) => {
-    // 0 = ended, 1 = playing, 2 = paused
     if (event.data === 1) {
       setIsPlaying(true);
     } else if (event.data === 2) {
@@ -73,14 +87,11 @@ export function usePlayer(initialTracks: Track[]) {
         } catch (e) {}
       }
     }, 500);
-  }, [currentTrack]); // eslint-disable-line
+  }, [currentTrack]);
 
   useEffect(() => {
     if (isPlaying) {
       startTimer();
-      // Note: playVideo() is NOT called here — the YouTube component remounts
-      // on each track change (key=youtubeId), so onPlayerReady handles it.
-      // Calling playVideo() here would race against the new player loading.
     } else {
       clearTimer();
       playerRef.current?.pauseVideo();
@@ -96,11 +107,8 @@ export function usePlayer(initialTracks: Track[]) {
 
   useEffect(() => {
     if (playerRef.current) {
-      if (isMuted) {
-        playerRef.current.mute();
-      } else {
-        playerRef.current.unMute();
-      }
+      if (isMuted) playerRef.current.mute();
+      else playerRef.current.unMute();
     }
   }, [isMuted]);
 
@@ -156,7 +164,6 @@ export function usePlayer(initialTracks: Track[]) {
             setCurrentIndex(0);
             setIsPlaying(true);
           } else {
-            // Queue exhausted — let App fetch more related tracks instead of stopping
             onExhaustedRef.current(queue[currentIndex] ?? null);
           }
         } else {
@@ -168,7 +175,6 @@ export function usePlayer(initialTracks: Track[]) {
     [currentIndex, queue.length, isShuffle, repeatMode]
   );
 
-  // Keep the ref in sync so onPlayerStateChange always calls the latest version
   useEffect(() => {
     handleNextRef.current = handleNext;
   }, [handleNext]);
@@ -205,19 +211,15 @@ export function usePlayer(initialTracks: Track[]) {
   const toggleMute = useCallback(() => setIsMuted((m) => !m), []);
   const toggleShuffle = useCallback(() => setIsShuffle((s) => !s), []);
   const toggleRepeat = useCallback(
-    () =>
-      setRepeatMode((r) =>
-        r === "none" ? "all" : r === "all" ? "one" : "none"
-      ),
+    () => setRepeatMode((r) => (r === "none" ? "all" : r === "all" ? "one" : "none")),
     []
   );
 
-  const toggleLike = useCallback((id: string) => {
-    setLiked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const toggleLike = useCallback((track: Track) => {
+    setLikedTracks((prev) => {
+      const exists = prev.find(t => t.id === track.id);
+      if (exists) return prev.filter(t => t.id !== track.id);
+      return [...prev, track];
     });
   }, []);
 
@@ -242,6 +244,7 @@ export function usePlayer(initialTracks: Track[]) {
     isShuffle,
     repeatMode,
     liked,
+    likedTracks, // Exporting full objects
     onPlayerReady,
     onPlayerStateChange,
     setVolume,

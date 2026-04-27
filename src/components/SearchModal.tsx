@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search } from "lucide-react";
+import { Search, Heart } from "lucide-react";
 import { useSearchMusic } from "../hooks/useSearchMusic";
 import { Track } from "../data/tracks";
 import { formatTime } from "../utils/format";
@@ -19,7 +19,7 @@ interface SearchModalProps {
   onClose: () => void;
   onSelectTrack: (track: Track) => void;
   liked: Set<string>;
-  onToggleLike: (id: string) => void;
+  onToggleLike: (track: Track) => void;
 }
 
 export default function SearchModal({
@@ -91,62 +91,55 @@ export default function SearchModal({
             </div>
           ) : (
             <div className="space-y-1 p-2">
-              {results.map((track) => (
-                <button
-                  key={track.id}
-                  onClick={() => {
-                    onSelectTrack(track);
-                    onClose();
-                    setQuery("");
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-800 transition-colors group text-left"
-                >
-                  {/* Thumbnail */}
-                  <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="w-12 h-12 rounded-md object-cover shrink-0"
-                  />
+              {results.map((track) => {
+                const isLiked = liked.has(track.id);
+                return (
+                  <button
+                    key={track.id}
+                    onClick={() => {
+                      onSelectTrack(track);
+                      onClose();
+                      setQuery("");
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-800 transition-colors group text-left"
+                  >
+                    {/* Thumbnail */}
+                    <img
+                      src={track.thumbnail}
+                      alt={track.title}
+                      className="w-12 h-12 rounded-md object-cover shrink-0"
+                    />
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {track.title}
-                    </p>
-                    <p className="text-xs text-zinc-500 truncate">
-                      {track.artist}
-                    </p>
-                  </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {track.title}
+                      </p>
+                      <p className="text-xs text-zinc-500 truncate">
+                        {track.artist}
+                      </p>
+                    </div>
 
-                  {/* Duration + Like */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-zinc-500">
-                      {formatTime(track.duration)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleLike(track.id);
-                      }}
-                      className="hover:bg-zinc-700"
-                    >
-                      <svg
-                        width={16}
-                        height={16}
-                        viewBox="0 0 24 24"
-                        fill={liked.has(track.id) ? "#1DB954" : "none"}
-                        stroke={liked.has(track.id) ? "#1DB954" : "currentColor"}
-                        strokeWidth="2"
-                        className="text-zinc-500"
+                    {/* Duration + Like */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-zinc-500">
+                        {formatTime(track.duration)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleLike(track);
+                        }}
+                        className={`hover:bg-zinc-700/50 transition-colors ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
                       >
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                      </svg>
-                    </Button>
-                  </div>
-                </button>
-              ))}
+                        <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+                      </Button>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
