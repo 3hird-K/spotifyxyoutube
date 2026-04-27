@@ -1,14 +1,15 @@
-import { useState, useMemo } from "react";
-import { Search, Play, Pause, Clock, Heart, ExternalLink, Download } from "lucide-react";
-import { Track, TRACKS, GENRES } from "../data/tracks";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Play, Pause, Clock, Heart, ExternalLink, Download, Loader2 } from "lucide-react";
+import { Track, GENRES } from "../data/tracks";
 import { formatTime } from "../utils/format";
+import { searchYouTubeMusic } from "../utils/youtube";
 
 interface MainContentProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   liked: Set<string>;
   queue: Track[];
-  onSelect: (index: number) => void;
+  onSelect: (track: Track) => void;
   onToggleLike: (id: string) => void;
   onTogglePlay: () => void;
   activeView: string;
@@ -26,25 +27,29 @@ export default function MainContent({
 }: MainContentProps) {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
+  const [apiTracks, setApiTracks] = useState<Track[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeView === "liked") return;
+
+    const fetchTracks = async () => {
+      setIsLoading(true);
+      const query = search.trim() || (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
+      const results = await searchYouTubeMusic(query);
+      setApiTracks(results);
+      setIsLoading(false);
+    };
+
+    const debounce = setTimeout(fetchTracks, 600);
+    return () => clearTimeout(debounce);
+  }, [search, selectedGenre, activeView]);
 
   const displayTracks = activeView === "liked"
-    ? TRACKS.filter((t) => liked.has(t.id))
-    : TRACKS;
+    ? queue.filter((t) => liked.has(t.id)) // Assuming liked tracks are pushed to queue or saved elsewhere, ideally we would need an overall store but we'll use apiTracks + queue for now
+    : apiTracks;
 
-  const filtered = useMemo(() => {
-    let result = displayTracks;
-    if (selectedGenre !== "All") result = result.filter((t) => t.genre === selectedGenre);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.artist.toLowerCase().includes(q) ||
-          t.album.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [search, selectedGenre, displayTracks, liked]); // eslint-disable-line
+  const filtered = displayTracks; // Filtering is handled via API now
 
   const pageTitle =
     activeView === "liked"
@@ -100,20 +105,24 @@ export default function MainContent({
       </div>
 
       {/* Featured banner (home view) */}
-      {activeView === "home" && !search && selectedGenre === "All" && (
+      {activeView === "home" && !search && selectedGenre === "All" && apiTracks.length > 0 && (
         <FeaturedBanner
-          track={TRACKS[0]}
-          isCurrentlyPlaying={currentTrack?.id === TRACKS[0].id && isPlaying}
-          queueIndex={queue.findIndex((t) => t.id === TRACKS[0].id)}
+          track={apiTracks[0]}
+          isCurrentlyPlaying={currentTrack?.id === apiTracks[0].id && isPlaying}
           onSelect={onSelect}
           onTogglePlay={onTogglePlay}
-          isCurrent={currentTrack?.id === TRACKS[0].id}
+          isCurrent={currentTrack?.id === apiTracks[0].id}
         />
       )}
 
       {/* Track list */}
       <div className="px-8 py-4">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
+            <Loader2 className="animate-spin mb-4" size={32} />
+            <p className="text-lg font-semibold text-zinc-500">Loading YouTube tracks...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
             <p className="text-4xl mb-3">🎵</p>
             <p className="text-lg font-semibold text-zinc-500">No tracks found</p>
@@ -134,7 +143,6 @@ export default function MainContent({
 
             <div className="space-y-1">
               {filtered.map((track, idx) => {
-                const queueIdx = queue.findIndex((t) => t.id === track.id);
                 const isCurrent = currentTrack?.id === track.id;
                 const isTrackPlaying = isCurrent && isPlaying;
                 const isLiked = liked.has(track.id);
@@ -147,7 +155,6 @@ export default function MainContent({
                     isCurrent={isCurrent}
                     isTrackPlaying={isTrackPlaying}
                     isLiked={isLiked}
-                    queueIdx={queueIdx}
                     onSelect={onSelect}
                     onTogglePlay={onTogglePlay}
                     onToggleLike={onToggleLike}
@@ -171,15 +178,13 @@ function FeaturedBanner({
   track,
   isCurrentlyPlaying,
   isCurrent,
-  queueIndex,
   onSelect,
   onTogglePlay,
 }: {
   track: Track;
   isCurrentlyPlaying: boolean;
   isCurrent: boolean;
-  queueIndex: number;
-  onSelect: (i: number) => void;
+  onSelect: (track: Track) => void;
   onTogglePlay: () => void;
 }) {
   return (
@@ -202,7 +207,7 @@ function FeaturedBanner({
           <p className="text-zinc-300 mt-0.5">{track.artist}</p>
         </div>
         <button
-          onClick={() => (isCurrent ? onTogglePlay() : onSelect(queueIndex))}
+          onClick={() => (isCurrent ? onTogglePlay() : onSelect(track))}
           className="w-14 h-14 rounded-full bg-[#1DB954] flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform"
         >
           {isCurrentlyPlaying ? (
@@ -224,7 +229,6 @@ function TrackRow({
   isCurrent,
   isTrackPlaying,
   isLiked,
-  queueIdx,
   onSelect,
   onTogglePlay,
   onToggleLike,
@@ -234,8 +238,7 @@ function TrackRow({
   isCurrent: boolean;
   isTrackPlaying: boolean;
   isLiked: boolean;
-  queueIdx: number;
-  onSelect: (i: number) => void;
+  onSelect: (track: Track) => void;
   onTogglePlay: () => void;
   onToggleLike: (id: string) => void;
 }) {
@@ -246,7 +249,7 @@ function TrackRow({
           ? "bg-[#1DB954]/10 border border-[#1DB954]/20"
           : "hover:bg-zinc-800/60"
       }`}
-      onClick={() => (isCurrent ? onTogglePlay() : onSelect(queueIdx))}
+      onClick={() => (isCurrent ? onTogglePlay() : onSelect(track))}
     >
       {/* Index / Play indicator */}
       <div className="w-8 flex items-center justify-center">
@@ -324,7 +327,7 @@ function TrackRow({
           <ExternalLink size={13} />
         </a>
         <a
-          href={`https://www.y2mate.com/youtube/${track.youtubeId}`}
+          href={`https://v16.www-y2mate.com/youtube/${track.youtubeId}`}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}

@@ -101,9 +101,9 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
               <ExternalLink size={14} className="text-zinc-600 group-hover:text-zinc-400 shrink-0" />
             </a>
 
-            {/* YouTube Download (via yt-dlp web proxy suggestion) */}
+            {/* YouTube Download (via yt-dlp web proxy suggestion) */} 
             <a
-              href={`https://www.y2mate.com/youtube/${track.youtubeId}`}
+              href={`https://v16.www-y2mate.com//youtube/${track.youtubeId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-colors group"

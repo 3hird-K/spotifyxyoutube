@@ -118,6 +118,24 @@ export function usePlayer(initialTracks: Track[]) {
     setIsPlaying(true);
   }, []);
 
+  const playArbitraryTrack = useCallback((track: Track) => {
+    setQueue((prev) => {
+      const idx = prev.findIndex(t => t.id === track.id);
+      if (idx !== -1) {
+        setCurrentTime(0);
+        setProgress(0);
+        setCurrentIndex(idx);
+        setIsPlaying(true);
+        return prev;
+      }
+      setCurrentTime(0);
+      setProgress(0);
+      setCurrentIndex(prev.length);
+      setIsPlaying(true);
+      return [...prev, track];
+    });
+  }, []);
+
   const handleNext = useCallback(
     (auto = false) => {
       if (repeatMode === "one" && auto) {
@@ -224,6 +242,7 @@ export function usePlayer(initialTracks: Track[]) {
     setVolume,
     togglePlay,
     selectTrack,
+    playArbitraryTrack,
     handleNext,
     handlePrev,
     seek,

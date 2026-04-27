@@ -1,6 +1,5 @@
 import { useState } from "react";
 import YouTube from "react-youtube";
-import { TRACKS } from "./data/tracks";
 import { usePlayer } from "./hooks/usePlayer";
 import Sidebar from "./components/Sidebar";
 import PlayerBar from "./components/PlayerBar";
@@ -12,7 +11,8 @@ export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [showNowPlaying, setShowNowPlaying] = useState(true);
 
-  const player = usePlayer(TRACKS);
+  // Initialize with an empty queue initially, tracks will be fetched and managed dynamically
+  const player = usePlayer([]);
 
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
@@ -34,7 +34,7 @@ export default function App() {
           isPlaying={player.isPlaying}
           liked={player.liked}
           queue={player.queue}
-          onSelect={player.selectTrack}
+          onSelect={(track) => player.playArbitraryTrack(track)}
           onToggleLike={player.toggleLike}
           onTogglePlay={player.togglePlay}
           activeView={activeView}
