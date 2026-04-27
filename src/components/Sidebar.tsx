@@ -46,7 +46,7 @@ export default function Sidebar({
             <div className="w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center">
               <Music size={16} className="text-black" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Spotube</span>
+            <span className="text-xl font-bold tracking-tight">Spotify Premium</span>
           </div>
         </div>
 

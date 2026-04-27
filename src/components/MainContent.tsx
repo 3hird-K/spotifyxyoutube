@@ -6,7 +6,7 @@ import {
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { formatTime } from "../utils/format";
-import { searchYouTubeMusic } from "../utils/youtube";
+import { useSearchMusic } from "../hooks/useSearchMusic";
 
 interface MainContentProps {
   currentTrack: Track | null;
@@ -41,28 +41,24 @@ export default function MainContent({
 }: MainContentProps) {
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
-  const [apiTracks, setApiTracks] = useState<Track[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   const isPlaylistView = activeView.startsWith("playlist:");
+  const shouldFetch = activeView !== "liked" && !isPlaylistView;
 
+  // Build the search query
+  const searchQuery =
+    search.trim() ||
+    (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
+
+  // Use React Query hook for data fetching
+  const { data: apiTracks = [], isLoading } = useSearchMusic(searchQuery, shouldFetch);
+
+  // Update queue when API tracks change
   useEffect(() => {
-    if (activeView === "liked" || isPlaylistView) return;
-
-    const fetchTracks = async () => {
-      setIsLoading(true);
-      const query =
-        search.trim() ||
-        (selectedGenre !== "All" ? `${selectedGenre} music trending` : "Top trending music");
-      const results = await searchYouTubeMusic(query);
-      setApiTracks(results);
-      onQueueChange(results);
-      setIsLoading(false);
-    };
-
-    const debounce = setTimeout(fetchTracks, 600);
-    return () => clearTimeout(debounce);
-  }, [search, selectedGenre, activeView, onQueueChange]); // eslint-disable-line
+    if (shouldFetch && apiTracks.length > 0) {
+      onQueueChange(apiTracks);
+    }
+  }, [apiTracks, shouldFetch, onQueueChange]);
 
   // Determine tracks to display
   let displayTracks: Track[] = [];
@@ -382,12 +378,12 @@ function TrackRow({
           <ExternalLink size={13} />
         </a>
 
-        {/* Download → opens Y2mate with video pre-filled */}
+        {/* Download → opens converter with video pre-filled */}
         <a
-          href={`https://www.y2mate.com/youtube/${track.youtubeId}`}
+          href={`https://www.savefrom.net/en/download/?url=https://www.youtube.com/watch?v=${track.youtubeId}`}
           target="_blank"
           rel="noopener noreferrer"
-          title="Download MP3/MP4 via Y2mate"
+          title="Download MP3/MP4 via SaveFrom"
           className="text-zinc-600 hover:text-amber-400 transition-colors p-1"
         >
           <Download size={13} />
