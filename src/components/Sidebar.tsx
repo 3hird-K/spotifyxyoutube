@@ -73,7 +73,7 @@ export default function Sidebar({
             <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center overflow-hidden">
               <img className="w-full h-full object-contain opacity-80" src={Logo} alt="Logo" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Spatify Premium</span>
+            <span className="text-xl font-bold tracking-tight">Spatify Premyum</span>
           </div>
         </div>
 
@@ -162,7 +162,7 @@ export default function Sidebar({
             </div>
           )}
 
-          {/* {recentlyPlayed.length > 0 && (
+          {recentlyPlayed.length > 0 && (
             <div className="pb-4">
               <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
                 Recently Played
@@ -183,7 +183,7 @@ export default function Sidebar({
                 ))}
               </div>
             </div>
-          )} */}
+          )}
         </ScrollArea>
 
 

@@ -58,11 +58,9 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
+              <button
                 onClick={() => onToggleLike(track)}
-                className={`shrink-0 mt-1 transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
+                className={`shrink-0 mt-1 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
                   }`}
               />
             }

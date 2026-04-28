@@ -41,6 +41,18 @@ export default function App() {
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // -- Video / PIP State --
+  const [isPip, setIsPip] = useState(false);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      videoContainerRef.current?.requestFullscreen().catch(err => console.log(err));
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
 
 
   const handleLogout = async () => {
@@ -284,9 +296,15 @@ export default function App() {
                   </Tooltip>
                 </div>
 
-                <div className="px-0 py-4 w-full">
+                <div className="w-full flex justify-center">
                   {player.currentTrack && (
-                    <div className="relative w-full aspect-square bg-black overflow-hidden">
+                    <div
+                      ref={videoContainerRef}
+                      className={`relative overflow-hidden bg-black transition-all shadow-2xl shadow-black/50 ${isPip
+                        ? "fixed bottom-[100px] aspect-video z-50 rounded-xl border border-zinc-700/50"
+                        : "w-full aspect-[4/5]"
+                        }`}
+                    >
                       <YouTube
                         key={player.currentTrack.youtubeId}
                         videoId={player.currentTrack.youtubeId}
@@ -299,13 +317,24 @@ export default function App() {
                             modestbranding: 1,
                             playsinline: 1,
                             rel: 0,
-                            vq: "hd1080", // Force HD resolution (which brings the highest audio bitrate possible)
+                            vq: "hd1080", // Force HD resolution
                           },
                         }}
-                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        className={`absolute inset-0 w-full h-full pointer-events-none transition-transform ${isPip || document.fullscreenElement ? "" : "scale-[2.2] origin-center"
+                          }`}
                         onReady={player.onPlayerReady}
                         onStateChange={player.onPlayerStateChange}
                       />
+
+                      {/* PIP Close Button overlay */}
+                      {isPip && (
+                        <button
+                          onClick={() => setIsPip(false)}
+                          className="absolute top-2 right-2 bg-black/60 hover:bg-black text-white p-1.5 rounded-full backdrop-blur-md transition-colors"
+                        >
+                          <PanelRightClose size={14} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -393,6 +422,8 @@ export default function App() {
               onToggleRepeat={player.toggleRepeat}
               onToggleLike={player.toggleLike}
               onTrackDetail={handleTrackDetail}
+              onTogglePip={() => setIsPip(!isPip)}
+              onToggleFullscreen={toggleFullscreen}
             />
           </div>
 

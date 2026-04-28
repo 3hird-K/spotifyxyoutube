@@ -9,6 +9,8 @@ import {
   Volume2,
   VolumeX,
   Heart,
+  Maximize2,
+  PictureInPicture2,
 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { RepeatMode } from "../hooks/usePlayer";
@@ -38,6 +40,8 @@ interface PlayerBarProps {
   onToggleRepeat: () => void;
   onToggleLike: (track: Track) => void;
   onTrackDetail?: (track: Track) => void;
+  onTogglePip?: () => void;
+  onToggleFullscreen?: () => void;
 }
 
 export default function PlayerBar({
@@ -60,6 +64,8 @@ export default function PlayerBar({
   onToggleRepeat,
   onToggleLike,
   onTrackDetail,
+  onTogglePip,
+  onToggleFullscreen,
 }: PlayerBarProps) {
   if (!track) return null;
 
@@ -93,14 +99,12 @@ export default function PlayerBar({
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleLike(track);
                 }}
-                className={`shrink-0 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                className={`shrink-0 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
               />
             }
           >
@@ -245,6 +249,32 @@ export default function PlayerBar({
           onValueChange={(val) => onVolumeChange((Array.isArray(val) ? val[0] : val) / 100)}
           className="flex-1 cursor-pointer [&_[data-slot=slider-track]]:bg-zinc-700 [&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-range]]:bg-zinc-300 [&_[data-slot=slider-thumb]]:size-3 [&_[data-slot=slider-thumb]]:border-zinc-300 [&_[data-slot=slider-thumb]]:opacity-0 [&:hover_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity"
         />
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                onClick={onTogglePip}
+                className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50 p-1.5 rounded-full ml-1"
+              />
+            }
+          >
+            <PictureInPicture2 size={16} />
+          </TooltipTrigger>
+          <TooltipContent>Mini Player</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                onClick={onToggleFullscreen}
+                className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50 p-1.5 rounded-full"
+              />
+            }
+          >
+            <Maximize2 size={16} />
+          </TooltipTrigger>
+          <TooltipContent>Full screen</TooltipContent>
+        </Tooltip>
       </div>
     </footer>
   );
