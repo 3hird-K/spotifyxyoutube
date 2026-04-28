@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import {
   Search, Play, Pause, Clock, Heart, ExternalLink,
-  Loader2, ListPlus, Check, Trash2, ListMusic,
+  Loader2, ListPlus, Check, Trash2, ListMusic, LogOut, Menu,
 } from "lucide-react";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { formatTime } from "../utils/format";
 import { useSearchMusic } from "../hooks/useSearchMusic";
 import { searchYouTubeMusic } from "../utils/youtube";
+import { supabase } from "../lib/supabase";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -140,9 +141,29 @@ export default function MainContent({
               <p className="text-[10px] text-green-400 font-bold uppercase">{isGuest ? "Guest" : "Premium"}</p>
             </div>
           </div>
-          <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white ml-3">
-            <Search size={24} />
-          </button>
+          <div className="flex gap-2 ml-3">
+            <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white">
+              <Search size={24} />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <button className="text-zinc-400 hover:text-white">
+                  <Menu size={24} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
+                <DropdownMenuItem 
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                  }}
+                  className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800/50 cursor-pointer flex items-center gap-2"
+                >
+                  <LogOut size={14} />
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
