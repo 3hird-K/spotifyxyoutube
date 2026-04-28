@@ -234,15 +234,13 @@ export default function App() {
                     Now Playing
                   </span>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
+                    <TooltipTrigger>
+                      <button
                         onClick={() => setShowNowPlaying(false)}
-                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50"
+                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50 p-2"
                       >
                          <PanelRightClose size={16} />
-                      </Button>
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent side="left">Hide panel</TooltipContent>
                   </Tooltip>
@@ -257,15 +255,13 @@ export default function App() {
 
             {!showNowPlaying && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
+                <TooltipTrigger>
+                  <button
                     onClick={() => setShowNowPlaying(true)}
-                    className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg"
+                    className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg p-3 items-center justify-center"
                   >
                      <PanelRightOpen size={16} />
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="left">Show Now Playing</TooltipContent>
               </Tooltip>

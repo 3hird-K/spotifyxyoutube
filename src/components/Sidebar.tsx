@@ -65,8 +65,9 @@ export default function Sidebar({
 
   // Helper for Guest vs Google User
   const isGuest = user?.is_anonymous;
-  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || "User";
-  const avatarUrl = isGuest ? null : user?.user_metadata?.avatar_url;
+  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const avatarUrl = !isGuest && user?.user_metadata?.avatar_url ? user.user_metadata.avatar_url : null;
+  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "U";
 
   return (
     <>
@@ -211,11 +212,14 @@ export default function Sidebar({
             {/* User Profile Card */}
             <div className="bg-zinc-900/50 rounded-lg p-3 border border-zinc-800">
                 <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
                         {avatarUrl ? (
-                            <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <User size={20} className="text-zinc-500" />
+                            <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => {e.currentTarget.style.display = 'none'}} />
+                        ) : null}
+                        {!avatarUrl && (
+                            <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                                {avatarInitial}
+                            </div>
                         )}
                     </div>
                     <div className="overflow-hidden flex-1">
@@ -253,9 +257,34 @@ export default function Sidebar({
         </div>
       </aside>
 
-      {/* Create Playlist Modal (unchanged) */}
+      {/* Create Playlist Modal */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-         {/* ... (Keep your existing Dialog code) ... */}
+        <DialogContent className="bg-zinc-900 border border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Create New Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Playlist name"
+              value={newPlaylistName}
+              onChange={(e) => setNewPlaylistName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreate}
+                disabled={!newPlaylistName.trim()}
+                className="bg-[#1DB954] hover:bg-[#1ed760] text-black"
+              >
+                Create
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
       </Dialog>
     </>
   );

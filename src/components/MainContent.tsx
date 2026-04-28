@@ -78,8 +78,9 @@ export default function MainContent({
   
   // User info for mobile view
   const isGuest = user?.is_anonymous;
-  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || "User";
-  const avatarUrl = isGuest ? null : user?.user_metadata?.avatar_url;
+  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const avatarUrl = !isGuest && user?.user_metadata?.avatar_url ? user.user_metadata.avatar_url : null;
+  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "U";
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const isLibraryView = activeView === "library";
@@ -126,10 +127,11 @@ export default function MainContent({
           <div className="bg-zinc-900/80 rounded-lg p-2 flex items-center gap-3 border border-zinc-800 flex-1">
             <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" />
-              ) : (
+                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => {e.currentTarget.style.display = 'none'}} />
+              ) : null}
+              {!avatarUrl && (
                 <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
-                  {displayName.charAt(0)}
+                  {avatarInitial}
                 </div>
               )}
             </div>
