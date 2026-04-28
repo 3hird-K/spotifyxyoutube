@@ -299,6 +299,7 @@ export default function App() {
                             modestbranding: 1,
                             playsinline: 1,
                             rel: 0,
+                            vq: "hd1080", // Force HD resolution (which brings the highest audio bitrate possible)
                           },
                         }}
                         className="absolute inset-0 w-full h-full pointer-events-none"

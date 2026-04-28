@@ -50,6 +50,12 @@ export function usePlayer(initialTracks: Track[]) {
   const onPlayerReady = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;
     event.target.setVolume(volume * 100);
+    
+    // Attempt to force the highest quality stream (HD1080 usually forces the best 160kbps Opus audio track)
+    try {
+      event.target.setPlaybackQuality('hd1080');
+    } catch (e) {}
+
     if (isMuted) {
       event.target.mute();
     } else {
@@ -65,7 +71,10 @@ export function usePlayer(initialTracks: Track[]) {
   }, [isPlaying, volume, isMuted, currentIndex]);
 
   const onPlayerStateChange = useCallback((event: YouTubeEvent) => {
-    if (event.data === 1) {
+    if (event.data === 1) { // Playing
+      try {
+        event.target.setPlaybackQuality('hd1080');
+      } catch (e) {}
       setIsPlaying(true);
     } else if (event.data === 2) {
       setIsPlaying(false);
