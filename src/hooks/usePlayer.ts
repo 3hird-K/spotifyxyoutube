@@ -40,11 +40,12 @@ export function usePlayer(initialTracks: Track[]) {
 
   const playerRef = useRef<YouTubePlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
-  const handleNextRef = useRef<(auto?: boolean) => void>(() => {});
-  const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => {});
+
+  const handleNextRef = useRef<(auto?: boolean) => void>(() => { });
+  const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => { });
 
   const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
+  const ytPlayerRef = useRef<any>(null);
 
   const onPlayerReady = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;
@@ -54,7 +55,7 @@ export function usePlayer(initialTracks: Track[]) {
     } else {
       event.target.unMute();
     }
-    
+
     // Safety check: Only play if isPlaying is true and we have a valid track index
     if (isPlaying && currentIndex >= 0) {
       event.target.playVideo();
@@ -91,7 +92,7 @@ export function usePlayer(initialTracks: Track[]) {
             setCurrentTime(elapsed);
             setProgress((elapsed / dur) * 100);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }, 500);
   }, [currentTrack]);
@@ -119,8 +120,23 @@ export function usePlayer(initialTracks: Track[]) {
     }
   }, [isMuted]);
 
+  // const togglePlay = useCallback(() => {
+  //   setIsPlaying((p) => !p);
+  // }, []);
   const togglePlay = useCallback(() => {
-    setIsPlaying((p) => !p);
+    if (!playerRef.current) return;
+
+    setIsPlaying((prev) => {
+      const next = !prev;
+
+      if (next) {
+        playerRef.current?.playVideo();
+      } else {
+        playerRef.current?.pauseVideo();
+      }
+
+      return next;
+    });
   }, []);
 
   const selectTrack = useCallback((index: number) => {

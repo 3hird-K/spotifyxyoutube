@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import YouTube from "react-youtube";
 import { usePlayer } from "./hooks/usePlayer";
 import Sidebar from "./components/Sidebar";
@@ -7,7 +7,7 @@ import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
 import SearchModal from "./components/SearchModal";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
-import { PanelRightOpen, PanelRightClose, Home, Search, Library } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function App() {
+
   // ── Auth State ────────────────────────────────────────────────────────────
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -35,10 +36,22 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
-  
+
   // -- Global Delete Confirm State --
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Helper for Guest vs Google User
+  const isGuest = user?.is_anonymous;
+  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const avatarUrl = !isGuest && user?.user_metadata?.avatar_url ? user.user_metadata.avatar_url : null;
+  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "U";
 
   // ── Auth Logic (Supabase) ────────────────────────────────────────────────
   useEffect(() => {
@@ -109,11 +122,11 @@ export default function App() {
       prev.map((pl) =>
         pl.id === playlistId
           ? {
-              ...pl,
-              tracks: pl.tracks.find((t) => t.id === track.id)
-                ? pl.tracks
-                : [...pl.tracks, track],
-            }
+            ...pl,
+            tracks: pl.tracks.find((t) => t.id === track.id)
+              ? pl.tracks
+              : [...pl.tracks, track],
+          }
           : pl
       )
     );
@@ -132,22 +145,27 @@ export default function App() {
   // ── Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([]);
 
+  // const handleTrackDetail = useCallback((track: Track) => {
+  //   setSelectedTrackDetail(track);
+  //   setActiveView("track-detail");
+  // }, []);
   const handleTrackDetail = useCallback((track: Track) => {
     setSelectedTrackDetail(track);
     setActiveView("track-detail");
+    setShowNowPlaying(true);
   }, []);
 
   const handleSelectFromSearch = useCallback(async (track: Track) => {
     player.playArbitraryTrack(track);
-    
+
     setRecentlyPlayed((prev) => {
       const filtered = prev.filter((t) => t.id !== track.id);
       return [track, ...filtered].slice(0, 20);
     });
-    
+
     const query = `${track.artist} ${track.title} music`;
     const related = await searchYouTubeMusic(query);
-    
+
     if (related.length > 0) {
       const relatedFiltered = related.filter(t => t.id !== track.id);
       setSearchResults([track, ...relatedFiltered]);
@@ -156,7 +174,7 @@ export default function App() {
       setSearchResults([track]);
       player.setQueue([track]);
     }
-    
+
     setActiveView("search-results");
   }, [player]);
 
@@ -193,13 +211,13 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className="relative h-dvh w-full bg-black overflow-hidden">
-        
+
         {/* 1. LOGIN OVERLAY (Hidden if user is logged in) */}
         {!user && <LoginScreen />}
 
         {/* 2. MAIN APP CONTENT (Blurred if no user) */}
         <div className={`flex flex-col h-full transition-all duration-700 ease-in-out ${!user ? "blur-2xl scale-110 pointer-events-none select-none" : "blur-0 scale-100"}`}>
-          
+
           <div className="flex flex-1 min-h-0">
             {/* Sidebar */}
             <Sidebar
@@ -243,9 +261,12 @@ export default function App() {
               onDeletePlaylist={requestDeletePlaylist}
             />
 
-            {/* Now playing panel */}
-            {showNowPlaying && (
-              <aside className="hidden lg:flex w-72 bg-zinc-950 border-l border-zinc-800 flex-col shrink-0 overflow-y-auto">
+            <aside
+              className={`transition-all duration-300 ease-in-out bg-zinc-950 border-zinc-800 flex-col shrink-0 overflow-hidden ${showNowPlaying ? "w-72 lg:flex border-l border-zinc-800" : "w-0 border-none opacity-0"
+                }`}
+            >
+              {/* Inner container to maintain 72 width (18rem) even when sliding closed */}
+              <div className="w-72 h-full flex flex-col overflow-y-auto">
                 <div className="flex items-center justify-between px-4 pt-5 pb-2">
                   <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">
                     Now Playing
@@ -254,21 +275,83 @@ export default function App() {
                     <TooltipTrigger>
                       <button
                         onClick={() => setShowNowPlaying(false)}
-                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50 p-2"
+                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50 p-2 rounded-full"
                       >
-                         <PanelRightClose size={16} />
+                        <PanelRightClose size={16} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="left">Hide panel</TooltipContent>
                   </Tooltip>
                 </div>
+
+                <div className="px-0 py-4 w-full">
+                  {player.currentTrack && (
+                    <div className="relative w-full aspect-square bg-black overflow-hidden">
+                      <YouTube
+                        key={player.currentTrack.youtubeId}
+                        videoId={player.currentTrack.youtubeId}
+                        opts={{
+                          width: "100%",
+                          height: "100%",
+                          playerVars: {
+                            autoplay: 0,
+                            controls: 0,
+                            modestbranding: 1,
+                            playsinline: 1,
+                            rel: 0,
+                          },
+                        }}
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        onReady={player.onPlayerReady}
+                        onStateChange={player.onPlayerStateChange}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* ----------------------------- */}
+
+                {/* Track Info Below the Video */}
                 <NowPlaying
                   track={player.currentTrack}
                   liked={player.liked}
                   onToggleLike={player.toggleLike}
                 />
-              </aside>
-            )}
+
+                {/* User Profile Card (from previous step) */}
+                <div className="mt-auto p-3 border-t border-zinc-800/50">
+                  <div className="bg-zinc-900/50 rounded-lg p-2.5 border border-zinc-800 flex items-center gap-3 hover:bg-zinc-800/50 transition-colors duration-200 cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                      ) : null}
+                      {!avatarUrl && (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                          {avatarInitial}
+                        </div>
+                      )}
+                    </div>
+                    <div className="overflow-hidden flex-1">
+                      <p className="text-sm font-bold text-white truncate">{displayName}</p>
+                      <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">
+                        {isGuest ? "Free Account" : "Premium"}
+                      </p>
+                    </div>
+                    {isGuest ? (
+                      <button onClick={() => supabase.auth.signOut()} className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Log in to Sync">
+                        <LogIn size={16} />
+                      </button>
+                    ) : (
+                      <button onClick={handleLogout} className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Sign out">
+                        <LogOut size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* DELETE THE HIDDEN YOUTUBE ENGINE THAT WAS DOWN HERE! */}
+            {/* // )} */}
 
             {!showNowPlaying && (
               <Tooltip>
@@ -277,7 +360,7 @@ export default function App() {
                     onClick={() => setShowNowPlaying(true)}
                     className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg p-3 items-center justify-center"
                   >
-                     <PanelRightOpen size={16} />
+                    <PanelRightOpen size={16} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="left">Show Now Playing</TooltipContent>
@@ -285,25 +368,7 @@ export default function App() {
             )}
           </div>
 
-          {/* YouTube Engine */}
-          {player.currentTrack && (
-            <YouTube
-              key={player.currentTrack.youtubeId}
-              videoId={player.currentTrack.youtubeId}
-              opts={{
-                height: "0",
-                width: "0",
-                playerVars: {
-                  autoplay: 1,
-                  controls: 0,
-                  modestbranding: 1,
-                },
-              }}
-              onReady={player.onPlayerReady}
-              onStateChange={player.onPlayerStateChange}
-              className="hidden"
-            />
-          )}
+
 
           {/* Player bar */}
           <div className="hidden md:block">
@@ -342,9 +407,8 @@ export default function App() {
                   key={view}
                   variant="ghost"
                   onClick={() => setActiveView(view)}
-                  className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${
-                    activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-                  }`}
+                  className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
                 >
                   <Icon size={24} />
                   <span className="text-[10px] font-medium">{label}</span>
@@ -371,7 +435,7 @@ export default function App() {
             </DialogHeader>
             <div className="py-4">
               <p className="text-zinc-400">
-                Are you sure you want to delete <span className="text-white font-bold">"{playlistToDelete?.name}"</span>? 
+                Are you sure you want to delete <span className="text-white font-bold">"{playlistToDelete?.name}"</span>?
                 This action cannot be undone.
               </p>
             </div>
@@ -379,7 +443,7 @@ export default function App() {
               <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="bg-transparent border-zinc-700 text-white hover:bg-zinc-800">
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => {
                   if (playlistToDelete) {

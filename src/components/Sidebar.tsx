@@ -133,36 +133,36 @@ export default function Sidebar({
         {/* Playlists Scroll Area */}
         <ScrollArea className="flex-1 px-3 mt-4">
           {playlists.length > 0 && (
-             <div className="pb-4">
-                <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
-                  Playlists
-                </p>
-                <div className="space-y-0.5">
-                  {playlists.map((pl) => (
-                    <div key={pl.id} className="group flex items-center">
-                      <button
-                        onClick={() => setActiveView(`playlist:${pl.id}`)}
-                        className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${activeView === `playlist:${pl.id}`
-                          ? "text-white bg-zinc-800"
-                          : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                          }`}
-                      >
-                        <ListMusic size={16} className="text-zinc-500" />
-                        <span className="truncate">{pl.name}</span>
-                      </button>
-                      <button 
-                        onClick={() => onDeletePlaylist(pl)}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 transition-all"
-                      >
-                         <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-             </div>
+            <div className="pb-4">
+              <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
+                Playlists
+              </p>
+              <div className="space-y-0.5">
+                {playlists.map((pl) => (
+                  <div key={pl.id} className="group flex items-center">
+                    <button
+                      onClick={() => setActiveView(`playlist:${pl.id}`)}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${activeView === `playlist:${pl.id}`
+                        ? "text-white bg-zinc-800"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                        }`}
+                    >
+                      <ListMusic size={16} className="text-zinc-500" />
+                      <span className="truncate">{pl.name}</span>
+                    </button>
+                    <button
+                      onClick={() => onDeletePlaylist(pl)}
+                      className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
-          {recentlyPlayed.length > 0 && (
+          {/* {recentlyPlayed.length > 0 && (
             <div className="pb-4">
               <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
                 Recently Played
@@ -183,73 +183,10 @@ export default function Sidebar({
                 ))}
               </div>
             </div>
-          )}
+          )} */}
         </ScrollArea>
 
-        {/* USER PROFILE SECTION (Anchored at bottom) */}
-        <div className="mt-auto p-3 border-t border-zinc-800/50">
-            {/* Currently Playing Track */}
-            {currentTrack && (
-              <div 
-                onClick={() => onTrackDetail(currentTrack)}
-                className="bg-zinc-900/80 rounded-lg p-2 mb-3 cursor-pointer hover:bg-zinc-800 transition-colors"
-              >
-                <img 
-                  src={currentTrack.thumbnail} 
-                  alt={currentTrack.title}
-                  className="w-full aspect-square rounded-md mb-2 object-cover shadow-md" 
-                />
-                <p className="text-xs font-bold text-white truncate">{currentTrack.title}</p>
-                <p className="text-[10px] text-zinc-400 truncate">{currentTrack.artist}</p>
-              </div>
-            )}
 
-            {/* User Profile Card */}
-            <div className="bg-zinc-900/50 rounded-lg p-3 border border-zinc-800">
-                <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
-                        {avatarUrl ? (
-                            <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => {e.currentTarget.style.display = 'none'}} />
-                        ) : null}
-                        {!avatarUrl && (
-                            <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
-                                {avatarInitial}
-                            </div>
-                        )}
-                    </div>
-                    <div className="overflow-hidden flex-1">
-                        <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                        <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">
-                            {isGuest ? "Free Account" : "Premium"}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-1">
-                    {isGuest ? (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => supabase.auth.signOut()} 
-                            className="w-full justify-start gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800 text-xs h-8"
-                        >
-                            <LogIn size={14} />
-                            Log in to Sync
-                        </Button>
-                    ) : (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleLogout} 
-                            className="w-full justify-start gap-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 text-xs h-8"
-                        >
-                            <LogOut size={14} />
-                            Sign out
-                        </Button>
-                    )}
-                </div>
-            </div>
-        </div>
       </aside>
 
       {/* Create Playlist Modal */}
@@ -270,7 +207,7 @@ export default function Sidebar({
               <Button variant="outline" onClick={() => setShowCreateModal(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreate}
                 disabled={!newPlaylistName.trim()}
                 className="bg-[#1DB954] hover:bg-[#1ed760] text-black"

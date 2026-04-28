@@ -550,7 +550,6 @@ export default function MainContent({
           </div>
         ) : displayTracks.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
-            <p className="text-3xl mb-3">🔍</p>
             <p className="text-base sm:text-lg font-semibold text-zinc-500">No tracks found</p>
           </div>
         ) : (
@@ -966,8 +965,8 @@ function TrackDetailView({
                       if (!alreadyIn) onAddToPlaylist(pl.id, track);
                     }}
                     className={`flex items-center gap-2 cursor-pointer ${alreadyIn
-                        ? "text-zinc-500 cursor-default"
-                        : "text-zinc-300 hover:text-white hover:bg-zinc-800/50"
+                      ? "text-zinc-500 cursor-default"
+                      : "text-zinc-300 hover:text-white hover:bg-zinc-800/50"
                       }`}
                   >
                     {alreadyIn ? (

@@ -67,53 +67,47 @@ export default function PlayerBar({
   const duration = track?.duration ?? 0;
 
   return (
-    <footer className="bg-zinc-900 border-t border-zinc-800 px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full h-auto z-10">
-      {/* Track info */}
-      <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-56 shrink-0">
-        <div className="flex items-center gap-3 flex-1 overflow-hidden">
-          {track ? (
-            <>
-              <img
-                src={track.thumbnail}
-                alt={track.title}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-md shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => onTrackDetail?.(track)}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-                }}
-              />
-              <div
-                className="overflow-hidden min-w-0 cursor-pointer"
-                onClick={() => onTrackDetail?.(track)}
-              >
-                <p className="text-sm font-semibold text-white truncate hover:underline">{track.title}</p>
-                <p className="text-xs text-zinc-400 truncate hover:text-zinc-300 transition-colors">{track.artist}</p>
-              </div>
-            </>
-          ) : (
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-800 shrink-0" />
-          )}
+    <footer className="bg-zinc-900 border-t border-zinc-800 h-[90px] px-4 flex items-center justify-between">
+      <div className="flex items-center gap-3 w-full sm:w-[280px] shrink-0">
+        <div
+          onClick={() => onTrackDetail?.(track)}
+          className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+        >
+          <img
+            src={track.thumbnail}
+            alt={track.title}
+            className="w-14 h-14 rounded-md object-cover shrink-0 group-hover:brightness-90 transition"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-cover.jpg" }}
+          />
+          <div className="min-w-0 hidden sm:block">
+            <p className="text-[14px] text-white truncate group-hover:underline leading-tight">
+              {track.title}
+            </p>
+            <p className="text-[12px] text-zinc-400 truncate">
+              {track.artist}
+            </p>
+          </div>
         </div>
-        
-        {track && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => onToggleLike(track)}
-                  className={`shrink-0 ml-1 transition-all hover:scale-110 hover:bg-zinc-800/50 ${
-                    isLiked ? "text-[#1DB954]" : "text-zinc-600 hover:text-white"
-                  }`}
-                />
-              }
-            >
-              <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
-            </TooltipTrigger>
-            <TooltipContent>{isLiked ? "Remove from Liked Songs" : "Save to Liked Songs"}</TooltipContent>
-          </Tooltip>
-        )}
+
+        {/* Heart - keep outside the clickable area */}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleLike(track);
+                }}
+                className={`shrink-0 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+              />
+            }
+          >
+            <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+          </TooltipTrigger>
+          <TooltipContent>{isLiked ? "Remove from Liked" : "Save to Liked"}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Controls */}
@@ -127,9 +121,8 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleShuffle}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${
-                    isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                  }`}
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                    }`}
                 />
               }
             >
@@ -194,9 +187,8 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleRepeat}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${
-                    repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                  }`}
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                    }`}
                 />
               }
             >
