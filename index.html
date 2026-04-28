@@ -1,13 +1,34 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="./src/favicon.ico" type="image/x-icon">
-    <title>Spotify Player – YouTube Music</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="./src/favicon.ico" type="image/x-icon">
+  <title>Spotify Player – YouTube Music</title>
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://spotifyxyoutube.vercel.app" />
+  <meta property="og:title" content="Spotify Player – YouTube Music" />
+  <meta property="og:description"
+    content="Stream YouTube Music with a beautiful Spotify-inspired interface. Create playlists, like songs, and enjoy high-quality music streaming." />
+  <meta property="og:image" content="https://spotifyxyoutube.vercel.app/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="Spotify Player" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://spotifyxyoutube.vercel.app" />
+  <meta property="twitter:title" content="Spotify Player – YouTube Music" />
+  <meta property="twitter:description" content="Stream YouTube Music with a beautiful Spotify-inspired interface." />
+  <meta property="twitter:image" content="https://spotifyxyoutube.vercel.app/og-image.jpg" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
