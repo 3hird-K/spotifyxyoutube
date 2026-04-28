@@ -44,6 +44,7 @@ interface MainContentProps {
   selectedTrackDetail: Track | null;
   onTrackDetail: (track: Track) => void;
   recentlyPlayed: Track[];
+  user: any;
 }
 
 export default function MainContent({
@@ -68,11 +69,17 @@ export default function MainContent({
   selectedTrackDetail,
   onTrackDetail,
   recentlyPlayed,
+  user,
 }: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
   const [activeTab, setActiveTab] = useState("All");
+  
+  // User info for mobile view
+  const isGuest = user?.is_anonymous;
+  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || "User";
+  const avatarUrl = isGuest ? null : user?.user_metadata?.avatar_url;
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const isLibraryView = activeView === "library";
@@ -111,21 +118,29 @@ export default function MainContent({
   // Mobile Home View - Grid Layout  - CSS-based responsive (uses md: breakpoint)
   // This returns desktop/tablet version for smaller screens via CSS media queries
   const mobileGridContent = (
-    <main className="md:hidden flex-1 flex flex-col min-h-0 w-full bg-zinc-950 overflow-y-auto pb-24">
+    <main className="md:hidden flex-1 flex flex-col min-h-0 w-full bg-zinc-950 overflow-y-auto pb-40">
       {/* Mobile Header with Tabs & Search */}
       <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md w-full px-4 pt-4 pb-2">
+        {/* Mobile User Profile in Header */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-black font-bold text-xs">
-              A
+          <div className="bg-zinc-900/80 rounded-lg p-2 flex items-center gap-3 border border-zinc-800 flex-1">
+            <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                  {displayName.charAt(0)}
+                </div>
+              )}
             </div>
-            <h1 className="text-xl font-bold text-white">Music</h1>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{displayName}</p>
+              <p className="text-[10px] text-green-400 font-bold uppercase">{isGuest ? "Guest" : "Premium"}</p>
+            </div>
           </div>
-          <div className="flex gap-4">
-            <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white">
-              <Search size={24} />
-            </button>
-          </div>
+          <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white ml-3">
+            <Search size={24} />
+          </button>
         </div>
         
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
@@ -230,9 +245,9 @@ export default function MainContent({
         </div>
       </div>
 
-      {/* Currently Playing Floating Bar (Mobile) */}
+      {/* Currently Playing Floating Bar (Mobile - at bottom above nav) */}
       {currentTrack && (
-        <div className="fixed bottom-[65px] left-2 right-2 z-30">
+        <div className="fixed bottom-[65px] left-2 right-2 z-30 md:hidden">
           <div 
             onClick={() => onTrackDetail(currentTrack)}
             className="bg-zinc-900/95 backdrop-blur-md rounded-md p-1.5 flex items-center gap-3 shadow-2xl border border-zinc-800"
@@ -340,53 +355,56 @@ export default function MainContent({
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-8 pt-6 pb-4 border-b border-zinc-800/50">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            {(isPlaylistView || activeView === "liked") && (
-              <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
-                {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
-              </span>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">
-                {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
-              </p>
+      <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {(isPlaylistView || activeView === "liked") && (
+                <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
+                  {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
+                </span>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{pageTitle}</h1>
+                <p className="text-xs sm:text-sm text-zinc-500 mt-0.5 truncate">
+                  {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
+
+            <Button
+              variant="outline"
+              onClick={onOpenSearch}
+              className="sm:ml-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 h-auto whitespace-nowrap shrink-0"
+            >
+              <Search size={16} />
+              <span className="hidden sm:inline">Search tracks, artists…</span>
+              <span className="sm:hidden">Search</span>
+              <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
+                ⌘K
+              </kbd>
+            </Button>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={onOpenSearch}
-            className="sm:ml-auto flex items-center gap-3 px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 h-auto"
-          >
-            <Search size={16} />
-            <span>Search tracks, artists…</span>
-            <kbd className="hidden md:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
-              ⌘K
-            </kbd>
-          </Button>
+          {/* Genre filters (only on Home) */}
+          {activeView === "home" && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {GENRES.map((g) => (
+                <Badge
+                  key={g}
+                  variant={selectedGenre === g ? "default" : "secondary"}
+                  onClick={() => setSelectedGenre(g)}
+                  className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors h-auto ${selectedGenre === g
+                    ? "bg-white text-black hover:bg-white/90"
+                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    }`}
+                >
+                  {g}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
-
-        {/* Genre filters (only on Home) */}
-        {activeView === "home" && (
-          <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
-            {GENRES.map((g) => (
-              <Badge
-                key={g}
-                variant={selectedGenre === g ? "default" : "secondary"}
-                onClick={() => setSelectedGenre(g)}
-                className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors h-auto ${selectedGenre === g
-                  ? "bg-white text-black hover:bg-white/90"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                  }`}
-              >
-                {g}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Featured banner (home view) */}
@@ -401,20 +419,20 @@ export default function MainContent({
       )}
 
       {/* Track list */}
-      <div className="px-8 py-4">
+      <div className="px-4 sm:px-8 py-4">
         {isTrendingLoading ? (
           <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
             <Loader2 className="animate-spin mb-4" size={32} />
-            <p className="text-lg font-semibold text-zinc-500">Loading tracks...</p>
+            <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p>
           </div>
         ) : displayTracks.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
-            <p className="text-4xl mb-3">🔍</p>
-            <p className="text-lg font-semibold text-zinc-500">No tracks found</p>
+            <p className="text-3xl mb-3">🔍</p>
+            <p className="text-base sm:text-lg font-semibold text-zinc-500">No tracks found</p>
           </div>
         ) : (
           <div className="space-y-1">
-            <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
+            <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
               <span className="w-8 text-center">#</span>
               <span>Title</span>
               <span className="flex items-center gap-1"><Clock size={13} /></span>
@@ -569,43 +587,43 @@ function TrackDetailView({
   onTrackDetail: (t: Track) => void;
 }) {
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto px-8 py-8">
-      <div className="flex flex-col md:flex-row gap-8 items-end mb-10">
-        <div className="w-64 h-64 shadow-2xl rounded-xl overflow-hidden shrink-0">
+    <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8">
+      <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start sm:items-end mb-8 sm:mb-10">
+        <div className="w-48 h-48 sm:w-64 sm:h-64 shadow-2xl rounded-xl overflow-hidden shrink-0">
           <img src={track.thumbnail} alt={track.album} className="w-full h-full object-cover" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Track</p>
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">{track.title}</h1>
-          <div className="flex items-center gap-2 text-white font-bold">
-            <span className="hover:underline cursor-pointer">{track.artist}</span>
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight line-clamp-3">{track.title}</h1>
+          <div className="flex flex-wrap items-center gap-2 text-white font-bold text-sm">
+            <span className="hover:underline cursor-pointer truncate">{track.artist}</span>
             <span className="text-zinc-500">•</span>
-            <span className="text-zinc-300 font-medium">{track.album}</span>
+            <span className="text-zinc-300 font-medium truncate">{track.album}</span>
             <span className="text-zinc-500">•</span>
             <span className="text-zinc-300 font-medium">{track.year}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-6 mb-12">
+      <div className="flex items-center gap-4 mb-8 sm:mb-12">
         <Button
           size="icon"
-          className="w-14 h-14 rounded-full bg-[#1DB954] hover:bg-[#1ed760] transition-transform hover:scale-105 active:scale-95 shadow-xl border-none"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] hover:bg-[#1ed760] transition-transform hover:scale-105 active:scale-95 shadow-xl border-none shrink-0"
           onClick={() => isCurrent ? onTogglePlay() : onSelect(track)}
         >
-          {isPlaying ? <Pause size={28} className="text-black fill-black" /> : <Play size={28} className="text-black ml-1 fill-black" />}
+          {isPlaying ? <Pause size={24} className="text-black fill-black" /> : <Play size={24} className="text-black ml-1 fill-black" />}
         </Button>
         <button
           onClick={() => onToggleLike(track)}
-          className={`transition-colors ${liked.has(track.id) ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
+          className={`transition-colors shrink-0 ${liked.has(track.id) ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
         >
-          <Heart size={32} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
+          <Heart size={28} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
         </button>
       </div>
 
-      <Separator className="bg-zinc-800 mb-8" />
+      <Separator className="bg-zinc-800 mb-6 sm:mb-8" />
 
-      <h2 className="text-2xl font-bold text-white mb-6">Recommended for you</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">Recommended for you</h2>
       {isLoadingRecommended ? (
         <div className="flex justify-center py-12">
           <Loader2 className="animate-spin text-zinc-700" size={32} />
@@ -660,21 +678,21 @@ function FeaturedBanner({
         onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-cover.jpg"; }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-      <div className="relative p-6 flex items-end justify-between w-full">
-        <div>
+      <div className="relative p-6 flex items-end justify-between w-full gap-4">
+        <div className="flex-1 min-w-0">
           <p className="text-xs text-[#1DB954] font-bold uppercase tracking-widest mb-1">🔥 Featured</p>
-          <h2 className="text-3xl font-black text-white">{track.title}</h2>
-          <p className="text-zinc-300 mt-0.5">{track.artist}</p>
+          <h2 className="text-lg sm:text-2xl lg:text-3xl font-black text-white line-clamp-2 leading-tight">{track.title}</h2>
+          <p className="text-xs sm:text-sm text-zinc-300 mt-1 truncate">{track.artist}</p>
         </div>
         <Button
           onClick={() => (isCurrent ? onTogglePlay() : onSelect(track))}
-          className="w-14 h-14 rounded-full bg-[#1DB954] flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform hover:bg-[#1ed760] border-none"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform hover:bg-[#1ed760] border-none shrink-0"
           size="icon-lg"
         >
           {isCurrentlyPlaying ? (
-            <Pause size={22} className="text-black" fill="black" />
+            <Pause size={20} className="text-black" fill="black" />
           ) : (
-            <Play size={22} className="text-black ml-1" fill="black" />
+            <Play size={20} className="text-black ml-1" fill="black" />
           )}
         </Button>
       </div>
