@@ -962,7 +962,7 @@ function TrackDetailView({
                 return (
                   <DropdownMenuItem
                     key={pl.id}
-                    onSelect={() => {
+                    onClick={() => {
                       if (!alreadyIn) onAddToPlaylist(pl.id, track);
                     }}
                     className={`flex items-center gap-2 cursor-pointer ${alreadyIn
@@ -1090,7 +1090,7 @@ function FeaturedBanner({
                 playlists.map((pl) => (
                   <DropdownMenuItem
                     key={pl.id}
-                    onSelect={() => onAddToPlaylist(pl.id, track)}
+                    onClick={() => onAddToPlaylist(pl.id, track)}
                     className="text-zinc-300 hover:text-white hover:bg-zinc-800/50 cursor-pointer truncate"
                   >
                     {pl.name}
@@ -1263,7 +1263,7 @@ function TrackRow({
                     return (
                       <DropdownMenuItem
                         key={pl.id}
-                        onSelect={() => {
+                        onClick={() => {
                           if (!alreadyIn) onAddToPlaylist(pl.id, track);
                         }}
                         className={`flex items-center gap-2 cursor-pointer ${alreadyIn
@@ -1350,7 +1350,7 @@ function TrackRow({
                   return (
                     <DropdownMenuItem
                       key={pl.id}
-                      onSelect={() => {
+                      onClick={() => {
                         if (!alreadyIn) onAddToPlaylist(pl.id, track);
                       }}
                       className={`flex items-center gap-2 cursor-pointer ${alreadyIn
