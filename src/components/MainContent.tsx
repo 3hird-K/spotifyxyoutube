@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Search, Play, Pause, Clock, Heart, ExternalLink,
-  Loader2, ListPlus, Check, Trash2, ListMusic, LogOut, Menu,
+  Loader2, ListPlus, Check, Trash2, ListMusic, LogOut, Menu, Plus,
 } from "lucide-react";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
@@ -22,13 +22,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 interface MainContentProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   liked: Set<string>;
   likedTracks: Track[];
-  queue: Track[];
   onSelect: (track: Track) => void;
   onToggleLike: (track: Track) => void;
   onTogglePlay: () => void;
@@ -46,6 +53,8 @@ interface MainContentProps {
   onTrackDetail: (track: Track) => void;
   recentlyPlayed: Track[];
   user: any;
+  onCreatePlaylist: (name: string) => void;
+  onDeletePlaylist: (playlist: Playlist) => void;
 }
 
 export default function MainContent({
@@ -53,7 +62,6 @@ export default function MainContent({
   isPlaying,
   liked,
   likedTracks,
-  queue,
   onSelect,
   onToggleLike,
   onTogglePlay,
@@ -71,12 +79,24 @@ export default function MainContent({
   onTrackDetail,
   recentlyPlayed,
   user,
+  onCreatePlaylist,
+  onDeletePlaylist,
 }: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
   const [activeTab, setActiveTab] = useState("All");
-  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+
+  const handleCreatePlaylist = () => {
+    const name = newPlaylistName.trim();
+    if (!name) return;
+    onCreatePlaylist(name);
+    setNewPlaylistName("");
+    setShowCreateModal(false);
+  };
+
   // User info for mobile view
   const isGuest = user?.is_anonymous;
   const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
@@ -128,7 +148,7 @@ export default function MainContent({
           <div className="bg-zinc-900/80 rounded-lg p-2 flex items-center gap-3 border border-zinc-800 flex-1">
             <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => {e.currentTarget.style.display = 'none'}} />
+                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               ) : null}
               {!avatarUrl && (
                 <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
@@ -142,30 +162,52 @@ export default function MainContent({
             </div>
           </div>
           <div className="flex gap-2 ml-3">
-            <button onClick={onOpenSearch} className="text-zinc-400 hover:text-white">
-              <Search size={24} />
-            </button>
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <button className="text-zinc-400 hover:text-white">
-                  <Menu size={24} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
-                <DropdownMenuItem 
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                  }}
-                  className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800/50 cursor-pointer flex items-center gap-2"
-                >
-                  <LogOut size={14} />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
+              <DropdownMenuTrigger
+                render={
+                  <button className="text-zinc-400 hover:text-white">
+                    <Menu size={24} />
+                  </button>
+                }
+              />
+              <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 w-48">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-zinc-400 text-xs uppercase tracking-wider">Menu</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => setShowCreateModal(true)}
+                    className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 cursor-pointer flex items-center gap-2"
+                  >
+                    <Plus size={14} />
+                    <span>Create Playlist</span>
+                  </DropdownMenuItem>
+                  {isPlaylistView && activePlaylist && (
+                    <DropdownMenuItem
+                      onClick={() => onDeletePlaylist(activePlaylist)}
+                      className="text-red-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer flex items-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Playlist</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
+                <Separator className="my-2 bg-zinc-800" />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-zinc-400 text-xs uppercase tracking-wider">Account</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                    }}
+                    className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800/50 cursor-pointer flex items-center gap-2"
+                  >
+                    <LogOut size={14} />
+                    <span>Sign out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-        
+
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
           {["All", "Music", "Podcasts"].map((tab) => (
             <button
@@ -173,14 +215,13 @@ export default function MainContent({
               onClick={() => {
                 setActiveTab(tab);
                 if (tab === "Music") setSelectedGenre("Pop");
-                if(tab === "Podcasts") setSelectedGenre("Podcast");
+                if (tab === "Podcasts") setSelectedGenre("Podcast");
                 else setSelectedGenre("All");
               }}
-              className={`shrink-0 px-4 py-1.5 rounded-full font-medium text-sm transition-colors ${
-                activeTab === tab
-                  ? "bg-[#1DB954] text-black"
-                  : "bg-zinc-800/80 text-zinc-300 hover:text-white"
-              }`}
+              className={`shrink-0 px-4 py-1.5 rounded-full font-medium text-sm transition-colors ${activeTab === tab
+                ? "bg-[#1DB954] text-black"
+                : "bg-zinc-800/80 text-zinc-300 hover:text-white"
+                }`}
             >
               {tab}
             </button>
@@ -226,8 +267,8 @@ export default function MainContent({
           <h2 className="text-xl font-black text-white mb-4">Recommended for you</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {(apiTracks.length > 0 ? apiTracks : recentlyPlayed).slice(0, 6).map((track) => (
-              <div 
-                key={track.id} 
+              <div
+                key={track.id}
                 onClick={() => onSelect(track)}
                 className="flex flex-col gap-2 group cursor-pointer"
               >
@@ -251,8 +292,8 @@ export default function MainContent({
           <h2 className="text-xl font-black text-white mb-4">Made for You</h2>
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
             {apiTracks.slice(6, 12).map((track) => (
-              <div 
-                key={track.id} 
+              <div
+                key={track.id}
                 onClick={() => onSelect(track)}
                 className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
               >
@@ -271,7 +312,7 @@ export default function MainContent({
       {/* Currently Playing Floating Bar (Mobile - at bottom above nav) */}
       {currentTrack && (
         <div className="fixed bottom-[65px] left-2 right-2 z-30 md:hidden">
-          <div 
+          <div
             onClick={() => onTrackDetail(currentTrack)}
             className="bg-zinc-900/95 backdrop-blur-md rounded-md p-1.5 flex items-center gap-3 shadow-2xl border border-zinc-800"
           >
@@ -308,10 +349,47 @@ export default function MainContent({
     </main>
   );
 
+  // Create Playlist Modal
+  const createPlaylistModal = (
+    <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <DialogContent className="bg-zinc-900 border border-zinc-800">
+        <DialogHeader>
+          <DialogTitle className="text-white">Create New Playlist</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Input
+            placeholder="Playlist name"
+            value={newPlaylistName}
+            onChange={(e) => setNewPlaylistName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreatePlaylist()}
+            className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePlaylist}
+              disabled={!newPlaylistName.trim()}
+              className="bg-[#1DB954] hover:bg-[#1ed760] text-black"
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   // Return mobile grid for home view (hidden on md and above due to md:hidden class)
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   if (activeView === "home" && isMobile) {
-    return mobileGridContent;
+    return (
+      <>
+        {mobileGridContent}
+        {createPlaylistModal}
+      </>
+    );
   }
 
   // Determine tracks to display for list views (for desktop/non-home views)
@@ -395,18 +473,36 @@ export default function MainContent({
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              onClick={onOpenSearch}
-              className="sm:ml-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 h-auto whitespace-nowrap shrink-0"
-            >
-              <Search size={16} />
-              <span className="hidden sm:inline">Search tracks, artists…</span>
-              <span className="sm:hidden">Search</span>
-              <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
-                ⌘K
-              </kbd>
-            </Button>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              {isPlaylistView && activePlaylist && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeletePlaylist(activePlaylist)}
+                      className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full h-10 w-10"
+                    >
+                      <Trash2 size={20} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete Playlist</TooltipContent>
+                </Tooltip>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={onOpenSearch}
+                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 h-10 whitespace-nowrap shrink-0"
+              >
+                <Search size={16} />
+                <span className="hidden sm:inline">Search tracks, artists…</span>
+                <span className="sm:hidden">Search</span>
+                <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
+                  ⌘K
+                </kbd>
+              </Button>
+            </div>
           </div>
 
           {/* Genre filters (only on Home) */}
@@ -438,6 +534,10 @@ export default function MainContent({
           onSelect={onSelect}
           onTogglePlay={onTogglePlay}
           isCurrent={currentTrack?.id === apiTracks[0].id}
+          liked={liked}
+          onToggleLike={onToggleLike}
+          playlists={playlists}
+          onAddToPlaylist={onAddToPlaylist}
         />
       )}
 
@@ -582,6 +682,199 @@ function LibraryView({
 
 // ─── Track Detail View ─────────────────────────────────────────────────────
 
+// function TrackDetailView({
+//   track,
+//   isPlaying,
+//   isCurrent,
+//   onTogglePlay,
+//   onSelect,
+//   liked,
+//   onToggleLike,
+//   recommendedTracks,
+//   isLoadingRecommended,
+//   playlists,
+//   onAddToPlaylist,
+//   onTrackDetail,
+// }: {
+//   track: Track;
+//   isPlaying: boolean;
+//   isCurrent: boolean;
+//   onTogglePlay: () => void;
+//   onSelect: (t: Track) => void;
+//   liked: Set<string>;
+//   onToggleLike: (track: Track) => void;
+//   recommendedTracks: Track[];
+//   isLoadingRecommended: boolean;
+//   playlists: Playlist[];
+//   onAddToPlaylist: (plId: string, t: Track) => void;
+//   onTrackDetail: (t: Track) => void;
+// }) {
+//   return (
+//     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8">
+//       <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start sm:items-end mb-8 sm:mb-10">
+//         <div className="w-48 h-48 sm:w-64 sm:h-64 shadow-2xl rounded-xl overflow-hidden shrink-0">
+//           <img src={track.thumbnail} alt={track.album} className="w-full h-full object-cover" />
+//         </div>
+//         <div className="flex-1 min-w-0">
+//           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Track</p>
+//           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight line-clamp-3">{track.title}</h1>
+//           <div className="flex flex-wrap items-center gap-2 text-white font-bold text-sm">
+//             <span className="hover:underline cursor-pointer truncate">{track.artist}</span>
+//             <span className="text-zinc-500">•</span>
+//             <span className="text-zinc-300 font-medium truncate">{track.album}</span>
+//             <span className="text-zinc-500">•</span>
+//             <span className="text-zinc-300 font-medium">{track.year}</span>
+//           </div>
+//         </div>
+//       </div>
+
+//       <div className="flex items-center gap-4 mb-8 sm:mb-12">
+//         <Button
+//           size="icon"
+//           className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] hover:bg-[#1ed760] transition-transform hover:scale-105 active:scale-95 shadow-xl border-none shrink-0"
+//           onClick={() => isCurrent ? onTogglePlay() : onSelect(track)}
+//         >
+//           {isPlaying ? <Pause size={24} className="text-black fill-black" /> : <Play size={24} className="text-black ml-1 fill-black" />}
+//         </Button>
+//         <button
+//           onClick={() => onToggleLike(track)}
+//           className={`transition-colors shrink-0 ${liked.has(track.id) ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
+//         >
+//           <Heart size={28} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
+//         </button>
+//         {/* <DropdownMenu>
+//           <DropdownMenuTrigger
+//             render={
+//               <button className="text-zinc-400 hover:text-white transition-colors shrink-0">
+//                 <Plus size={28} />sss
+//               </button>
+//             }
+//           />
+
+
+//           <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-800 w-48">
+//             <DropdownMenuLabel className="text-zinc-400 text-xs uppercase tracking-wider">Add to Playlist</DropdownMenuLabel>
+//             {playlists.length > 0 ? (
+//               playlists.map((pl) => (
+//                 <DropdownMenuItem
+//                   key={pl.id}
+//                   onSelect={() => onAddToPlaylist(pl.id, track)}
+//                   className="text-zinc-300 hover:text-white hover:bg-zinc-800/50 cursor-pointer truncate"
+//                 >
+//                   {pl.name}
+//                 </DropdownMenuItem>
+//               ))
+//             ) : (
+//               <DropdownMenuItem disabled className="text-zinc-600 text-xs">
+//                 No playlists yet
+//               </DropdownMenuItem>
+//             )}
+//           </DropdownMenuContent>
+//         </DropdownMenu> */}
+
+
+//         {/* ///FIx this ADD/REMOVE TO PLAYLIST JUST LIKE HOW I DID AT THE */}
+//         {isInPlaylist && activePlaylistId ? (
+//           <Tooltip>
+//             <TooltipTrigger
+//               render={
+//                 <Button
+//                   variant="ghost"
+//                   size="icon-xs"
+//                   onClick={() => onRemoveFromPlaylist(activePlaylistId, track.id)}
+//                   className="text-zinc-600 hover:text-red-400 transition-colors hover:bg-zinc-700/50"
+//                 />
+//               }
+//             >
+//               <Trash2 size={13} />
+//             </TooltipTrigger>
+//             <TooltipContent>Remove from playlist</TooltipContent>
+//           </Tooltip>
+//         ) : (
+//           /* Add to playlist dropdown — no nested tooltip/trigger conflict */
+//           playlists.length > 0 && (
+//             <DropdownMenu>
+//               <DropdownMenuTrigger
+//                 render={
+//                   <button className="text-zinc-600 hover:text-[#1DB954] transition-colors p-1.5 rounded-md hover:bg-zinc-700/50 inline-flex">
+//                     <ListPlus size={13} />
+//                   </button>
+//                 }
+//               />
+//               <DropdownMenuContent
+//                 align="end"
+//                 side="top"
+//                 sideOffset={8}
+//                 className="bg-zinc-800 border-zinc-700 min-w-44"
+//               >
+//                 <DropdownMenuGroup>
+//                   <DropdownMenuLabel className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
+//                     Add to playlist
+//                   </DropdownMenuLabel>
+//                 </DropdownMenuGroup>
+//                 {playlists.map((pl) => {
+//                   const alreadyIn = pl.tracks.some((t) => t.id === track.id);
+//                   return (
+//                     <DropdownMenuItem
+//                       key={pl.id}
+//                       onSelect={() => {
+//                         if (!alreadyIn) onAddToPlaylist(pl.id, track);
+//                       }}
+//                       className={`flex items-center gap-2 cursor-pointer ${alreadyIn
+//                         ? "text-zinc-500 cursor-default"
+//                         : "text-zinc-200"
+//                         }`}
+//                     >
+//                       {alreadyIn ? (
+//                         <Check size={12} className="text-[#1DB954] shrink-0" />
+//                       ) : (
+//                         <ListPlus size={12} className="text-zinc-500 shrink-0" />
+//                       )}
+//                       <span className="truncate">{pl.name}</span>
+//                     </DropdownMenuItem>
+//                   );
+//                 })}
+//               </DropdownMenuContent>
+//             </DropdownMenu>
+//           )
+//         )}
+//       </div>
+
+//       <Separator className="bg-zinc-800 mb-6 sm:mb-8" />
+
+//       <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">Recommended for you</h2>
+//       {isLoadingRecommended ? (
+//         <div className="flex justify-center py-12">
+//           <Loader2 className="animate-spin text-zinc-700" size={32} />
+//         </div>
+//       ) : (
+//         <div className="space-y-1">
+//           {recommendedTracks.map((t, idx) => (
+//             <TrackRow
+//               key={t.id}
+//               track={t}
+//               idx={idx}
+//               isCurrent={false}
+//               isTrackPlaying={false}
+//               isLiked={liked.has(t.id)}
+//               onSelect={onSelect}
+//               onToggleLike={onToggleLike}
+//               playlists={playlists}
+//               onAddToPlaylist={onAddToPlaylist}
+//               isInPlaylist={false}
+//               activePlaylistId={null}
+//               onRemoveFromPlaylist={() => { }}
+//               onTrackDetail={onTrackDetail}
+//             />
+//           ))}
+//         </div>
+//       )}
+//     </main>
+//   );
+// }
+
+// ─── Track Detail View ─────────────────────────────────────────────────────
+
 function TrackDetailView({
   track,
   isPlaying,
@@ -642,6 +935,53 @@ function TrackDetailView({
         >
           <Heart size={28} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
         </button>
+
+        {/* Add to playlist dropdown — matches TrackRow pattern */}
+        {playlists.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button className="text-zinc-400 hover:text-white transition-colors shrink-0">
+                  <Plus size={28} />
+                </button>
+              }
+            />
+            <DropdownMenuContent
+              align="start"
+              side="bottom"
+              sideOffset={8}
+              className="bg-zinc-900 border-zinc-800 min-w-48"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-zinc-400 text-xs uppercase tracking-wider">
+                  Add to Playlist
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              {playlists.map((pl) => {
+                const alreadyIn = pl.tracks.some((t) => t.id === track.id);
+                return (
+                  <DropdownMenuItem
+                    key={pl.id}
+                    onSelect={() => {
+                      if (!alreadyIn) onAddToPlaylist(pl.id, track);
+                    }}
+                    className={`flex items-center gap-2 cursor-pointer ${alreadyIn
+                        ? "text-zinc-500 cursor-default"
+                        : "text-zinc-300 hover:text-white hover:bg-zinc-800/50"
+                      }`}
+                  >
+                    {alreadyIn ? (
+                      <Check size={14} className="text-[#1DB954] shrink-0" />
+                    ) : (
+                      <ListPlus size={14} className="text-zinc-500 shrink-0" />
+                    )}
+                    <span className="truncate">{pl.name}</span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <Separator className="bg-zinc-800 mb-6 sm:mb-8" />
@@ -685,12 +1025,20 @@ function FeaturedBanner({
   isCurrent,
   onSelect,
   onTogglePlay,
+  liked,
+  onToggleLike,
+  playlists,
+  onAddToPlaylist,
 }: {
   track: Track;
   isCurrentlyPlaying: boolean;
   isCurrent: boolean;
   onSelect: (track: Track) => void;
   onTogglePlay: () => void;
+  liked: Set<string>;
+  onToggleLike: (track: Track) => void;
+  playlists: Playlist[];
+  onAddToPlaylist: (playlistId: string, track: Track) => void;
 }) {
   return (
     <div className="mx-8 mt-6 mb-2 rounded-2xl overflow-hidden relative h-52 flex items-end">
@@ -707,17 +1055,55 @@ function FeaturedBanner({
           <h2 className="text-lg sm:text-2xl lg:text-3xl font-black text-white line-clamp-2 leading-tight">{track.title}</h2>
           <p className="text-xs sm:text-sm text-zinc-300 mt-1 truncate">{track.artist}</p>
         </div>
-        <Button
-          onClick={() => (isCurrent ? onTogglePlay() : onSelect(track))}
-          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform hover:bg-[#1ed760] border-none shrink-0"
-          size="icon-lg"
-        >
-          {isCurrentlyPlaying ? (
-            <Pause size={20} className="text-black" fill="black" />
-          ) : (
-            <Play size={20} className="text-black ml-1" fill="black" />
-          )}
-        </Button>
+
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => (isCurrent ? onTogglePlay() : onSelect(track))}
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform hover:bg-[#1ed760] border-none shrink-0"
+            size="icon-lg"
+          >
+            {isCurrentlyPlaying ? (
+              <Pause size={20} className="text-black" fill="black" />
+            ) : (
+              <Play size={20} className="text-black ml-1" fill="black" />
+            )}
+          </Button>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleLike(track); }}
+            className={`transition-all hover:scale-110 ${liked.has(track.id) ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
+          >
+            <Heart size={28} className={liked.has(track.id) ? "fill-[#1DB954]" : ""} />
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button className="text-zinc-400 hover:text-white transition-all hover:scale-110">
+                  <Plus size={28} />
+                </button>
+              }
+            />
+            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 w-48">
+              <DropdownMenuLabel className="text-zinc-400 text-xs uppercase tracking-wider">Add to Playlist</DropdownMenuLabel>
+              {playlists.length > 0 ? (
+                playlists.map((pl) => (
+                  <DropdownMenuItem
+                    key={pl.id}
+                    onSelect={() => onAddToPlaylist(pl.id, track)}
+                    className="text-zinc-300 hover:text-white hover:bg-zinc-800/50 cursor-pointer truncate"
+                  >
+                    {pl.name}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled className="text-zinc-600 text-xs">
+                  No playlists yet
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
   );
@@ -877,8 +1263,7 @@ function TrackRow({
                     return (
                       <DropdownMenuItem
                         key={pl.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onSelect={() => {
                           if (!alreadyIn) onAddToPlaylist(pl.id, track);
                         }}
                         className={`flex items-center gap-2 cursor-pointer ${alreadyIn
@@ -965,8 +1350,7 @@ function TrackRow({
                   return (
                     <DropdownMenuItem
                       key={pl.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onSelect={() => {
                         if (!alreadyIn) onAddToPlaylist(pl.id, track);
                       }}
                       className={`flex items-center gap-2 cursor-pointer ${alreadyIn

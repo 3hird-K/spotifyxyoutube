@@ -13,9 +13,15 @@ import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
 import { Track } from "./data/tracks";
 
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function App() {
   // ── Auth State ────────────────────────────────────────────────────────────
@@ -29,6 +35,10 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  
+  // -- Global Delete Confirm State --
+  const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // ── Auth Logic (Supabase) ────────────────────────────────────────────────
   useEffect(() => {
@@ -84,6 +94,14 @@ export default function App() {
 
   const handleDeletePlaylist = useCallback((id: string) => {
     setPlaylists((prev) => prev.filter((pl) => pl.id !== id));
+    if (activeView === `playlist:${id}`) {
+      setActiveView("home");
+    }
+  }, [activeView]);
+
+  const requestDeletePlaylist = useCallback((playlist: Playlist) => {
+    setPlaylistToDelete(playlist);
+    setShowDeleteConfirm(true);
   }, []);
 
   const handleAddToPlaylist = useCallback((playlistId: string, track: Track) => {
@@ -185,15 +203,13 @@ export default function App() {
           <div className="flex flex-1 min-h-0">
             {/* Sidebar */}
             <Sidebar
-              queue={player.queue}
-              currentIndex={player.currentIndex}
               onSelect={player.selectTrack}
               liked={player.liked}
               activeView={activeView}
               setActiveView={setActiveView}
               playlists={playlists}
               onCreatePlaylist={handleCreatePlaylist}
-              onDeletePlaylist={handleDeletePlaylist}
+              onDeletePlaylist={requestDeletePlaylist}
               recentlyPlayed={recentlyPlayed}
               onTrackDetail={handleTrackDetail}
               user={user}
@@ -206,7 +222,6 @@ export default function App() {
               isPlaying={player.isPlaying}
               liked={player.liked}
               likedTracks={player.likedTracks}
-              queue={player.queue}
               onSelect={(track) => player.playArbitraryTrack(track)}
               onToggleLike={player.toggleLike}
               onTogglePlay={player.togglePlay}
@@ -224,6 +239,8 @@ export default function App() {
               onTrackDetail={handleTrackDetail}
               recentlyPlayed={recentlyPlayed}
               user={user}
+              onCreatePlaylist={handleCreatePlaylist}
+              onDeletePlaylist={requestDeletePlaylist}
             />
 
             {/* Now playing panel */}
@@ -345,6 +362,38 @@ export default function App() {
           liked={player.liked}
           onToggleLike={player.toggleLike}
         />
+
+        {/* Global Delete Playlist Confirmation Modal */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="bg-zinc-900 border border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="text-white">Delete Playlist</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-zinc-400">
+                Are you sure you want to delete <span className="text-white font-bold">"{playlistToDelete?.name}"</span>? 
+                This action cannot be undone.
+              </p>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="bg-transparent border-zinc-700 text-white hover:bg-zinc-800">
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  if (playlistToDelete) {
+                    handleDeletePlaylist(playlistToDelete.id);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white border-none"
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

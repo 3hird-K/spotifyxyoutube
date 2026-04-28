@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, ListMusic, Trash2, LogOut, User, LogIn } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2, LogOut, LogIn } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../public/images/spotifylogo.png';
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -19,15 +18,13 @@ import {
 } from "@/components/ui/dialog";
 
 interface SidebarProps {
-  queue: Track[];
-  currentIndex: number;
   onSelect: (index: number) => void;
   liked: Set<string>;
   activeView: string;
   setActiveView: (v: string) => void;
   playlists: Playlist[];
   onCreatePlaylist: (name: string) => void;
-  onDeletePlaylist: (id: string) => void;
+  onDeletePlaylist: (playlist: Playlist) => void;
   recentlyPlayed: Track[];
   onTrackDetail: (track: Track) => void;
   user: any;
@@ -35,8 +32,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({
-  queue,
-  currentIndex,
   liked,
   activeView,
   setActiveView,
@@ -156,7 +151,7 @@ export default function Sidebar({
                         <span className="truncate">{pl.name}</span>
                       </button>
                       <button 
-                        onClick={() => onDeletePlaylist(pl.id)}
+                        onClick={() => onDeletePlaylist(pl)}
                         className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 transition-all"
                       >
                          <Trash2 size={14} />
