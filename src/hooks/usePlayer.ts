@@ -282,10 +282,73 @@ export function usePlayer(initialTracks: Track[]) {
     });
   }, []);
 
-  // Media Session - Metadata Update
+  // Stable refs to the latest functions so action handlers never need to be reset
+  const nextRef = useRef(handleNext);
+  const prevRef = useRef(handlePrev);
+  const seekRef = useRef(seek);
+  const isPlayingRef = useRef(isPlaying);
+  const currentTrackRef = useRef(currentTrack);
+
+  useEffect(() => {
+    nextRef.current = handleNext;
+    prevRef.current = handlePrev;
+    seekRef.current = seek;
+    isPlayingRef.current = isPlaying;
+    currentTrackRef.current = currentTrack;
+  }, [handleNext, handlePrev, seek, isPlaying, currentTrack]);
+
+  // Media Session - Action Handlers (Set ONCE and use refs)
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const nav = navigator.mediaSession;
+
+    const playAction = () => {
+      setIsPlaying(true);
+      playerRef.current?.playVideo();
+    };
+    const pauseAction = () => {
+      setIsPlaying(false);
+      playerRef.current?.pauseVideo();
+    };
+
+    nav.setActionHandler('play', playAction);
+    nav.setActionHandler('pause', pauseAction);
+    nav.setActionHandler('nexttrack', () => nextRef.current());
+    nav.setActionHandler('previoustrack', () => prevRef.current());
+    
+    // Some Android devices need these to show full controls
+    nav.setActionHandler('seekbackward', () => {
+      const time = Math.max(0, (playerRef.current?.getCurrentTime() || 0) - 10);
+      seekRef.current((time / (currentTrackRef.current?.duration || 1)) * 100);
+    });
+    nav.setActionHandler('seekforward', () => {
+      const time = Math.min(currentTrackRef.current?.duration || 0, (playerRef.current?.getCurrentTime() || 0) + 10);
+      seekRef.current((time / (currentTrackRef.current?.duration || 1)) * 100);
+    });
+
+    nav.setActionHandler('seekto', (details) => {
+      if (details.seekTime !== undefined && currentTrackRef.current) {
+        seekRef.current((details.seekTime / currentTrackRef.current.duration) * 100);
+      }
+    });
+
+    // Cleanup ONLY on unmount
+    return () => {
+      nav.setActionHandler('play', null);
+      nav.setActionHandler('pause', null);
+      nav.setActionHandler('nexttrack', null);
+      nav.setActionHandler('previoustrack', null);
+      nav.setActionHandler('seekbackward', null);
+      nav.setActionHandler('seekforward', null);
+      nav.setActionHandler('seekto', null);
+    };
+  }, []); // Empty dependency array: Set handlers only once!
+
+  // Media Session - Metadata & State Update (Separate from handlers)
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
+    // Update Metadata
     // @ts-ignore
     navigator.mediaSession.metadata = new window.MediaMetadata({
       title: currentTrack.title,
@@ -300,15 +363,11 @@ export function usePlayer(initialTracks: Track[]) {
         { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
       ]
     });
-  }, [currentTrack]);
 
-  // Media Session - Playback State & Position Update
-  useEffect(() => {
-    if (!('mediaSession' in navigator) || !currentTrack) return;
-
+    // Update State
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
-    // Update position state for interactive progress bar on lockscreen
+    // Update position
     try {
       if ('setPositionState' in navigator.mediaSession) {
         navigator.mediaSession.setPositionState({
@@ -317,58 +376,9 @@ export function usePlayer(initialTracks: Track[]) {
           position: currentTime || 0,
         });
       }
-    } catch (e) {
-      // Some browsers might throw if parameters are invalid (e.g. duration 0)
-    }
-  }, [isPlaying, currentTime, currentTrack]);
+    } catch (e) {}
+  }, [currentTrack, isPlaying, currentTime]);
 
-  // Media Session - Action Handlers (Set once with refs to avoid flickering/hiding buttons)
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-
-    const nav = navigator.mediaSession;
-
-    nav.setActionHandler('play', () => {
-      setIsPlaying(true);
-      playerRef.current?.playVideo();
-    });
-    nav.setActionHandler('pause', () => {
-      setIsPlaying(false);
-      playerRef.current?.pauseVideo();
-    });
-    nav.setActionHandler('previoustrack', () => {
-      // Use the latest version of the functions through the hook's scope
-      // Since this effect doesn't have deps, we must be careful.
-      // Actually, it's better to keep deps but only for the handlers we want to persist.
-    });
-    // Let's actually use the standard way with deps but without frequent resets
-  }, []); 
-
-  // RE-DESIGN: One stable effect for handlers
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    const nav = navigator.mediaSession;
-
-    const playHandler = () => { setIsPlaying(true); playerRef.current?.playVideo(); };
-    const pauseHandler = () => { setIsPlaying(false); playerRef.current?.pauseVideo(); };
-    const nextHandler = () => handleNext();
-    const prevHandler = () => handlePrev();
-    const seekHandler = (details: any) => { if (details.seekTime !== undefined) seek((details.seekTime / (currentTrack?.duration || 1)) * 100); };
-
-    nav.setActionHandler('play', playHandler);
-    nav.setActionHandler('pause', pauseHandler);
-    nav.setActionHandler('nexttrack', nextHandler);
-    nav.setActionHandler('previoustrack', prevHandler);
-    nav.setActionHandler('seekto', seekHandler);
-
-    return () => {
-      nav.setActionHandler('play', null);
-      nav.setActionHandler('pause', null);
-      nav.setActionHandler('nexttrack', null);
-      nav.setActionHandler('previoustrack', null);
-      nav.setActionHandler('seekto', null);
-    };
-  }, [handleNext, handlePrev, seek, currentTrack?.duration]);
 
 
 
