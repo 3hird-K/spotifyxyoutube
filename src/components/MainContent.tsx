@@ -382,7 +382,7 @@ export default function MainContent(props: MainContentProps) {
                         track={track}
                         onSelect={onSelect}
                         title={track.title}
-                        subtitle={`Artist • ${track.artist}`}
+                        subtitle={`${track.artist}`}
                       />
                     </div>
                   ))}
@@ -392,7 +392,7 @@ export default function MainContent(props: MainContentProps) {
               {/* Popular radio */}
               <HorizontalScrollSection
                 title="Popular radio"
-                onShowAll={() => console.log("Show all radio")}
+              // onShowAll={() => console.log("Show all radio")}
               >
                 {[...apiTracks].reverse().slice(0, 15).map(track => (
                   <div key={`pop-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">

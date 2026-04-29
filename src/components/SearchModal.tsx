@@ -32,28 +32,26 @@ export default function SearchModal({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Use React Query hook for search
   const { data: results = [], isLoading } = useSearchMusic(query, isOpen);
 
-  // Focus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
+    } else {
+      setQuery(""); // Clear search when closing
     }
   }, [isOpen]);
 
   return (
     <Dialog
       open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      onOpenChange={(open) => !open && onClose()}
     >
       <DialogContent
-        className="bg-zinc-900 border-zinc-800 text-white sm:max-w-2xl p-0 gap-0 max-h-[80vh] flex flex-col"
+        className="bg-zinc-900 border-zinc-800 text-white sm:max-w-2xl p-0 gap-0 max-h-[85vh] flex flex-col overflow-hidden"
         showCloseButton={false}
       >
-        {/* Header with search input */}
+        {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-zinc-800 shrink-0">
           <DialogTitle className="sr-only">Search Music</DialogTitle>
           <div className="relative flex items-center gap-3">
@@ -64,33 +62,31 @@ export default function SearchModal({
               placeholder="Search songs, artists…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-10 bg-zinc-800/30 border-zinc-700/50 text-white placeholder-zinc-500 focus-visible:border-[#1DB954] focus-visible:ring-[#1DB954]/30 h-10"
+              className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder-zinc-500 focus-visible:border-[#1DB954] focus-visible:ring-[#1DB954]/30 h-11"
             />
           </div>
         </DialogHeader>
 
-        {/* Results */}
-        <ScrollArea className="flex-1 min-h-[300px]">
+        {/* Scrollable Results - Now limited to ~8 items visible */}
+        <ScrollArea className="flex-1 px-2 py-2 h-[560px] overflow-y-auto">
           {query.length < 3 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <Search size={32} className="text-zinc-600 mb-3" />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Search size={40} className="text-zinc-600 mb-4" />
               <p className="text-zinc-400 text-sm">
                 Search for music by title, artist, or album.
               </p>
             </div>
           ) : isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin">
-                <div className="w-8 h-8 border-2 border-zinc-600 border-t-zinc-400 rounded-full" />
-              </div>
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin w-8 h-8 border-2 border-zinc-600 border-t-zinc-400 rounded-full" />
             </div>
           ) : results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <Search size={32} className="text-zinc-600 mb-3" />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Search size={40} className="text-zinc-600 mb-4" />
               <p className="text-zinc-400 text-sm">No results found</p>
             </div>
           ) : (
-            <div className="space-y-1 p-2">
+            <div className="space-y-1 pr-2">
               {results.map((track) => {
                 const isLiked = liked.has(track.id);
                 return (
@@ -101,16 +97,14 @@ export default function SearchModal({
                       onClose();
                       setQuery("");
                     }}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-800 transition-colors group text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/70 transition-all group text-left"
                   >
-                    {/* Thumbnail */}
                     <img
                       src={track.thumbnail}
                       alt={track.title}
-                      className="w-12 h-12 rounded-md object-cover shrink-0"
+                      className="w-12 h-12 rounded-lg object-cover shrink-0"
                     />
 
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
                         {track.title}
@@ -120,9 +114,8 @@ export default function SearchModal({
                       </p>
                     </div>
 
-                    {/* Duration + Like */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-zinc-500">
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs text-zinc-500 font-mono">
                         {formatTime(track.duration)}
                       </span>
                       <Button
@@ -132,9 +125,12 @@ export default function SearchModal({
                           e.stopPropagation();
                           onToggleLike(track);
                         }}
-                        className={`hover:bg-zinc-700/50 transition-colors ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                        className={`hover:bg-zinc-700 transition-colors ${isLiked ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
                       >
-                        <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+                        <Heart
+                          size={17}
+                          className={isLiked ? "fill-[#1DB954]" : ""}
+                        />
                       </Button>
                     </div>
                   </button>
