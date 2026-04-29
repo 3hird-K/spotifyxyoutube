@@ -47,6 +47,7 @@ interface MainContentProps {
   user: any;
   onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (playlist: Playlist) => void;
+  onEditPlaylist: (playlist: Playlist) => void;
   isShuffle: boolean;
   repeatMode: RepeatMode;
   onToggleShuffle: () => void;
@@ -61,7 +62,7 @@ export default function MainContent(props: MainContentProps) {
     onTogglePlay, onQueueChange, onQueueUpdateOnly, activeView, setActiveView,
     playlists, onAddToPlaylist, onRemoveFromPlaylist, activePlaylist,
     onOpenSearch, searchResults, selectedTrackDetail, onTrackDetail,
-    recentlyPlayed, user, onCreatePlaylist, onDeletePlaylist,
+    recentlyPlayed, user, onCreatePlaylist, onDeletePlaylist, onEditPlaylist,
     isShuffle,
     repeatMode,
     onToggleShuffle,
@@ -222,11 +223,16 @@ export default function MainContent(props: MainContentProps) {
                   {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
                 </span>
               )}
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{pageTitle}</h1>
-                <p className="text-xs sm:text-sm text-zinc-500 mt-0.5 truncate">
-                  {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
-                </p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-4xl font-black text-white truncate mb-2">{pageTitle}</h1>
+                {isPlaylistView && activePlaylist?.description && (
+                  <p className="text-sm text-zinc-400 mb-2 line-clamp-2">{activePlaylist.description}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <p className="text-xs sm:text-sm text-zinc-300 font-bold mt-0.5 truncate flex items-center gap-1.5">
+                    {user?.user_metadata?.full_name || "User"} • {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
               </div>
             </div>
 

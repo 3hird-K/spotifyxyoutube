@@ -9,7 +9,7 @@ import SearchModal from "./components/SearchModal";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
 import { MobilePlayer } from "./components/MobilePlayer";
 import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
-import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus, ListMusic, Pencil } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "./components/ui/input";
 
 export default function App() {
 
@@ -39,6 +40,8 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [playlistToEdit, setPlaylistToEdit] = useState<Playlist | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // -- Global Delete Confirm State --
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
@@ -127,6 +130,7 @@ export default function App() {
       const formatted: Playlist[] = dbPlaylists.map((pl: any) => ({
         id: pl.id,
         name: pl.name,
+        description: pl.description || "",
         tracks: (pl.playlist_tracks || []).map((t: any) => t.track_data as unknown as Track),
         createdAt: pl.created_at ? new Date(pl.created_at).getTime() : Date.now(),
       }));
@@ -260,6 +264,29 @@ export default function App() {
       }
     }
   }, [activeView, user]);
+
+  const handleUpdatePlaylist = useCallback(async (id: string, newName: string, newDescription?: string) => {
+    // Optimistic update
+    setPlaylists((prev) => prev.map((pl) => (pl.id === id ? { ...pl, name: newName, description: newDescription } : pl)));
+
+    // Supabase update
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("playlists")
+        .update({
+          name: newName,
+          description: newDescription
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error updating playlist:", error);
+        // Refresh from DB on error
+        const { data } = await supabase.from("playlists").select("*");
+        if (data) setPlaylists(data as any);
+      }
+    }
+  }, [user]);
 
   const requestDeletePlaylist = useCallback((playlist: Playlist) => {
     setPlaylistToDelete(playlist);
@@ -463,6 +490,10 @@ export default function App() {
               playlists={playlists}
               onCreatePlaylist={handleCreatePlaylist}
               onDeletePlaylist={requestDeletePlaylist}
+              onEditPlaylist={(pl) => {
+                setPlaylistToEdit(pl);
+                setShowEditModal(true);
+              }}
               recentlyPlayed={recentlyPlayed}
               onTrackDetail={handleTrackDetail}
             />
@@ -483,6 +514,10 @@ export default function App() {
               playlists={playlists}
               onAddToPlaylist={handleAddToPlaylist}
               onRemoveFromPlaylist={handleRemoveFromPlaylist}
+              onEditPlaylist={(pl) => {
+                setPlaylistToEdit(pl);
+                setShowEditModal(true);
+              }}
               activePlaylist={activePlaylist}
               onOpenSearch={() => setIsSearchOpen(true)}
               searchResults={searchResults}
@@ -609,9 +644,6 @@ export default function App() {
               </div>
             </aside>
 
-            {/* DELETE THE HIDDEN YOUTUBE ENGINE THAT WAS DOWN HERE! */}
-            {/* // )} */}
-
             {!showNowPlaying && (
               <Tooltip>
                 <TooltipTrigger
@@ -628,8 +660,6 @@ export default function App() {
               </Tooltip>
             )}
           </div>
-
-
 
           {/* Player bar */}
           <div className="hidden md:block">
@@ -714,12 +744,68 @@ export default function App() {
           onToggleLike={player.toggleLike}
         />
 
-        {/* Global Create Playlist Modal */}
+        {/* Create Playlist Modal */}
         <CreatePlaylistModal
           open={showCreateModal}
           onOpenChange={setShowCreateModal}
           onCreate={handleCreatePlaylist}
         />
+
+        {/* Edit Playlist Modal (Spotify Style) */}
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogContent className="bg-[#282828] border-none text-white max-w-[524px] p-6 gap-0 rounded-lg">
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-2xl font-bold">Edit details</DialogTitle>
+            </DialogHeader>
+            <div className="flex gap-4">
+              {/* Playlist Artwork Cover */}
+              <div className="w-[180px] h-[180px] bg-[#333] rounded shadow-2xl flex-shrink-0 flex items-center justify-center relative overflow-hidden">
+                {playlistToEdit?.tracks?.[0]?.thumbnail ? (
+                  <img src={playlistToEdit.tracks[0].thumbnail} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <ListMusic size={64} className="text-[#b3b3b3]" />
+                )}
+              </div>
+
+              {/* Form Fields */}
+              <div className="flex-1 flex flex-col gap-3">
+                <div className="relative group">
+                  <label className="absolute left-3 top-1 text-[10px] font-bold text-zinc-400 opacity-0 group-focus-within:opacity-100 transition-opacity">Name</label>
+                  <Input
+                    value={playlistToEdit?.name || ""}
+                    onChange={(e) => setPlaylistToEdit(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    placeholder="Add a name"
+                    className="bg-[#3e3e3e] border-none text-white placeholder:text-zinc-500 h-10 pt-1 focus-visible:ring-1 focus-visible:ring-zinc-500"
+                  />
+                </div>
+                <div className="relative flex-1">
+                  <textarea
+                    value={playlistToEdit?.description || ""}
+                    onChange={(e) => setPlaylistToEdit(prev => prev ? { ...prev, description: e.target.value } : null)}
+                    placeholder="Add an optional description"
+                    className="w-full h-[108px] bg-[#3e3e3e] border-none text-white placeholder:text-zinc-500 p-3 rounded-md text-sm resize-none focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="flex justify-end">
+                <Button
+                  className="bg-white hover:bg-zinc-200 text-black font-bold rounded-full px-8 py-6 h-12"
+                  onClick={() => {
+                    if (playlistToEdit) {
+                      handleUpdatePlaylist(playlistToEdit.id, playlistToEdit.name, playlistToEdit.description);
+                      setShowEditModal(false);
+                    }
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Global Delete Playlist Confirmation Modal */}
         <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, ListMusic, Trash2 } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2, Pencil } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../public/images/spotifylogo.png';
@@ -24,6 +24,7 @@ interface SidebarProps {
   playlists: Playlist[];
   onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (playlist: Playlist) => void;
+  onEditPlaylist: (playlist: Playlist) => void;
   recentlyPlayed: Track[];
   onTrackDetail: (track: Track) => void;
 }
@@ -35,6 +36,7 @@ export default function Sidebar({
   playlists,
   onCreatePlaylist,
   onDeletePlaylist,
+  onEditPlaylist,
   recentlyPlayed,
   onTrackDetail,
 }: SidebarProps) {
@@ -137,12 +139,20 @@ export default function Sidebar({
                       <ListMusic size={16} className="text-zinc-500" />
                       <span className="truncate">{pl.name}</span>
                     </button>
-                    <button
-                      onClick={() => onDeletePlaylist(pl)}
-                      className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={() => onEditPlaylist(pl)}
+                        className="p-2 text-zinc-500 hover:text-white transition-all"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => onDeletePlaylist(pl)}
+                        className="p-2 text-zinc-500 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
