@@ -163,8 +163,8 @@ export default function App() {
     setShowNowPlaying(true);
   }, []);
 
-  const handleSelectTrack = useCallback((track: Track) => {
-    player.playArbitraryTrack(track);
+  const handleSelectTrack = useCallback((track: Track, contextQueue?: Track[]) => {
+    player.playArbitraryTrack(track, contextQueue);
     setRecentlyPlayed((prev) => {
       const filtered = prev.filter((t) => t.id !== track.id);
       return [track, ...filtered].slice(0, 20);

@@ -155,17 +155,18 @@ export function usePlayer(initialTracks: Track[]) {
     setIsPlaying(true);
   }, []);
 
-  const playArbitraryTrack = useCallback((track: Track) => {
+  const playArbitraryTrack = useCallback((track: Track, contextQueue?: Track[]) => {
     setCurrentTime(0);
     setProgress(0);
     setIsPlaying(true);
     setQueue((prev) => {
-      const idx = prev.findIndex(t => t.id === track.id);
+      const q = contextQueue ?? prev;
+      const idx = q.findIndex(t => t.id === track.id);
       if (idx !== -1) {
         setCurrentIndex(idx);
-        return prev;
+        return q;
       }
-      const newQueue = [...prev, track];
+      const newQueue = [...q, track];
       setCurrentIndex(newQueue.length - 1);
       return newQueue;
     });

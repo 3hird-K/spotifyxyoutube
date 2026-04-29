@@ -77,8 +77,8 @@ export default function SearchModal({
               </p>
             </div>
           ) : isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin w-8 h-8 border-2 border-zinc-600 border-t-zinc-400 rounded-full" />
+            <div className="flex items-center justify-center py-20 relative min-h-[200px]">
+              <MusicLoader variant="circular" size="sm" cycleTracks />
             </div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

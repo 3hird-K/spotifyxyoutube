@@ -31,7 +31,7 @@ export function TrackDetailView({
   isPlaying: boolean;
   isCurrent: boolean;
   onTogglePlay: () => void;
-  onSelect: (t: Track) => void;
+  onSelect: (t: Track, contextQueue?: Track[]) => void;
   liked: Set<string>;
   onToggleLike: (track: Track) => void;
   recommendedTracks: Track[];
@@ -63,7 +63,7 @@ export function TrackDetailView({
         <Button
           size="icon"
           className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1DB954] hover:bg-[#1ed760] transition-transform hover:scale-105 active:scale-95 shadow-xl border-none shrink-0"
-          onClick={() => isCurrent ? onTogglePlay() : onSelect(track)}
+          onClick={() => isCurrent ? onTogglePlay() : onSelect(track, [track, ...recommendedTracks])}
         >
           {isPlaying ? <Pause size={24} className="text-black fill-black" /> : <Play size={24} className="text-black ml-1 fill-black" />}
         </Button>
@@ -139,7 +139,7 @@ export function TrackDetailView({
               isCurrent={false}
               isTrackPlaying={false}
               isLiked={liked.has(t.id)}
-              onSelect={onSelect}
+              onSelect={(t) => onSelect(t, recommendedTracks)}
               onToggleLike={onToggleLike}
               playlists={playlists}
               onAddToPlaylist={onAddToPlaylist}

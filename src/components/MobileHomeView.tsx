@@ -34,7 +34,7 @@ interface MobileHomeViewProps {
     onGenreChange: (genre: string) => void;
 
     // Actions
-    onSelect: (track: Track) => void;
+    onSelect: (track: Track, contextQueue?: Track[]) => void;
     onToggleLike: (track: Track) => void;
     onTogglePlay: () => void;
     onTrackDetail: (track: Track) => void;
@@ -192,7 +192,7 @@ export function MobileHomeView({
                 <Section title="Recommended for you">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
-                            <MobileTrackCard key={track.id} track={track} onSelect={onSelect} />
+                            <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
                         ))}
                     </div>
                 </Section>
@@ -203,7 +203,7 @@ export function MobileHomeView({
                         {tracks.slice(6, 12).map((track) => (
                             <div
                                 key={track.id}
-                                onClick={() => onSelect(track)}
+                                onClick={() => onSelect(track, tracks)}
                                 className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
                             >
                                 <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">

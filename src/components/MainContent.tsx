@@ -20,13 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HorizontalScrollSection } from "./HorizontalScrollSection";
+import { MusicLoader } from "./MusicLoader";
 
 interface MainContentProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   liked: Set<string>;
   likedTracks: Track[];
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, contextQueue?: Track[]) => void;
   onToggleLike: (track: Track) => void;
   onTogglePlay: () => void;
   onQueueChange: (tracks: Track[]) => void;
@@ -122,7 +123,7 @@ export default function MainContent(props: MainContentProps) {
           profile={profile}
           selectedGenre={selectedGenre}
           onGenreChange={setSelectedGenre}
-          onSelect={onSelect}
+          onSelect={(t) => onSelect(t, apiTracks)}
           onToggleLike={onToggleLike}
           onTogglePlay={onTogglePlay}
           onTrackDetail={onTrackDetail}
@@ -148,7 +149,7 @@ export default function MainContent(props: MainContentProps) {
         isPlaying={currentTrack?.id === selectedTrackDetail.id && isPlaying}
         isCurrent={currentTrack?.id === selectedTrackDetail.id}
         onTogglePlay={onTogglePlay}
-        onSelect={onSelect}
+        onSelect={(t) => onSelect(t, recommendedTracks)}
         liked={liked}
         onToggleLike={onToggleLike}
         recommendedTracks={recommendedTracks}
@@ -273,6 +274,7 @@ export default function MainContent(props: MainContentProps) {
           )}
         </div>
       </div>
+      
 
 
       {/* Track list */}
@@ -280,7 +282,8 @@ export default function MainContent(props: MainContentProps) {
         {isTrendingLoading ? (
           <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
             <Loader2 className="animate-spin mb-4" size={32} />
-            <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p>
+            {/* <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p> */}
+            
           </div>
         ) : displayTracks.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
@@ -306,7 +309,7 @@ export default function MainContent(props: MainContentProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (likedTracks.length > 0) onSelect(likedTracks[0]);
+                      if (likedTracks.length > 0) onSelect(likedTracks[0], likedTracks);
                     }}
                     className="absolute right-3 w-10 h-10 sm:w-11 sm:h-11 bg-[#1ed760] rounded-full flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 shadow-2xl hover:scale-105 transition-all duration-200 z-20"
                   >
@@ -344,7 +347,7 @@ export default function MainContent(props: MainContentProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (pl.tracks.length > 0) onSelect(pl.tracks[0]);
+                        if (pl.tracks.length > 0) onSelect(pl.tracks[0], pl.tracks);
                       }}
                       className="absolute right-3 w-10 h-10 sm:w-11 sm:h-11 bg-[#1ed760] rounded-full flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 shadow-2xl hover:scale-105 transition-all duration-200 z-20"
                     >
@@ -363,7 +366,7 @@ export default function MainContent(props: MainContentProps) {
                   <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                     <HomeCard
                       track={track}
-                      onSelect={onSelect}
+                      onSelect={(t) => onSelect(t, apiTracks)}
                       title={track.artist}
                       subtitle={`With ${track.title} and more`}
                     />
@@ -380,7 +383,7 @@ export default function MainContent(props: MainContentProps) {
                     <div key={`recent-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                       <HomeCard
                         track={track}
-                        onSelect={onSelect}
+                        onSelect={(t) => onSelect(t, recentlyPlayed)}
                         title={track.title}
                         subtitle={`${track.artist}`}
                       />
@@ -398,7 +401,7 @@ export default function MainContent(props: MainContentProps) {
                   <div key={`pop-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                     <HomeCard
                       track={track}
-                      onSelect={onSelect}
+                      onSelect={(t) => onSelect(t, [...apiTracks].reverse())}
                       title={track.artist}
                       subtitle={`Radio based on ${track.artist}`}
                     />
@@ -423,7 +426,7 @@ export default function MainContent(props: MainContentProps) {
                   isCurrent={currentTrack?.id === track.id}
                   isTrackPlaying={currentTrack?.id === track.id && isPlaying}
                   isLiked={liked.has(track.id)}
-                  onSelect={onSelect}
+                  onSelect={(t) => onSelect(t, displayTracks)}
                   onToggleLike={onToggleLike}
                   playlists={playlists}
                   onAddToPlaylist={onAddToPlaylist}
