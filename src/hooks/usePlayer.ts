@@ -215,6 +215,23 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     });
   }, []);
 
+  const loadTrack = useCallback((track: Track, contextQueue?: Track[]) => {
+    setCurrentTime(0);
+    setProgress(0);
+    setIsPlaying(false);
+    setQueue((prev) => {
+      const q = contextQueue ?? prev;
+      const idx = q.findIndex(t => t.id === track.id);
+      if (idx !== -1) {
+        setCurrentIndex(idx);
+        return q;
+      }
+      const newQueue = [...q, track];
+      setCurrentIndex(newQueue.length - 1);
+      return newQueue;
+    });
+  }, []);
+
   const handleNext = useCallback(
     (auto = false) => {
       if (repeatMode === "one" && auto) {
@@ -463,5 +480,6 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     toggleLike,
     addToQueue,
     setQueueOnly,
+    loadTrack,
   };
 }

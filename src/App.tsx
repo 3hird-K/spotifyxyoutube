@@ -108,6 +108,106 @@ export default function App() {
     }
   });
 
+  // ── Player ────────────────────────────────────────────────────────────────
+  const player = usePlayer([], user);
+
+  const handleTrackDetail = useCallback((track: Track) => {
+    setSelectedTrackDetail(track);
+    setActiveView("track-detail");
+    setShowNowPlaying(true);
+  }, []);
+
+  const handleSelectTrack = useCallback(async (track: Track, contextQueue?: Track[]) => {
+    player.playArbitraryTrack(track, contextQueue);
+
+    // Update local state
+    setRecentlyPlayed((prev) => {
+      const filtered = prev.filter((t) => t.id !== track.id);
+      return [track, ...filtered].slice(0, 20);
+    });
+
+    // Supabase update if logged in
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("recently_played")
+        .upsert({
+          user_id: user.id,
+          track_id: track.id,
+          track_data: track as any,
+          played_at: new Date().toISOString()
+        }, { onConflict: 'user_id,track_id' });
+
+      if (error) console.error("Error saving to recently played:", error);
+    }
+  }, [player, user]);
+
+  const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
+    handleSelectTrack(track);
+
+    // Save search query if provided
+    if (query && query.trim()) {
+      const trimmed = query.trim();
+      setRecentSearches(prev => {
+        const filtered = prev.filter(q => q !== trimmed);
+        return [trimmed, ...filtered].slice(0, 10);
+      });
+
+      // Update recent search tracks (the actual item clicked)
+      setRecentSearchTracks(prev => {
+        const filtered = prev.filter(t => t.id !== track.id);
+        return [track, ...filtered].slice(0, 10);
+      });
+
+      if (user && !user.is_anonymous) {
+        // Save query
+        await supabase.from("recent_searches").insert({
+          user_id: user.id,
+          query: trimmed
+        });
+
+        // Save track item
+        await supabase.from("recent_search_items").upsert({
+          user_id: user.id,
+          track_id: track.id,
+          track_data: track as any,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'user_id,track_id' });
+      }
+    }
+
+    const related = await searchYouTubeMusic("", {
+      mode: "recommend",
+      videoId: track.youtubeId
+    });
+
+    if (related.length > 0) {
+      const relatedFiltered = related.filter(t =>
+        t.id !== track.id &&
+        !t.title.toLowerCase().includes(track.title.toLowerCase())
+      );
+      setSearchResults([track, ...relatedFiltered]);
+      player.setQueue([track, ...relatedFiltered]);
+    } else {
+      setSearchResults([track]);
+      player.setQueue([track]);
+    }
+
+    // Go directly to track detail view to show recommendations
+    handleTrackDetail(track);
+  }, [player, handleTrackDetail, user, handleSelectTrack]);
+
+  const handleRemoveRecentSearch = useCallback(async (trackId: string) => {
+    setRecentSearchTracks(prev => prev.filter(t => t.id !== trackId));
+
+    if (user && !user.is_anonymous) {
+      await supabase
+        .from("recent_search_items")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("track_id", trackId);
+    }
+  }, [user]);
+
   // Sync playlists from Supabase if logged in
   useEffect(() => {
     if (!user || user.is_anonymous) return;
@@ -213,11 +313,17 @@ export default function App() {
         return;
       }
 
-      setRecentlyPlayed(data.map((d: any) => d.track_data as unknown as Track));
+      const tracks = data.map((d: any) => d.track_data as unknown as Track);
+      setRecentlyPlayed(tracks);
+
+      // Load last played song into player bar if nothing is playing
+      if (tracks.length > 0 && player.currentIndex === -1) {
+        player.loadTrack(tracks[0], tracks);
+      }
     };
 
     fetchRecentlyPlayed();
-  }, [user]);
+  }, [user, player.loadTrack]);
 
   // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
   useEffect(() => {
@@ -371,105 +477,8 @@ export default function App() {
     }
   }, [user]);
 
-  // ── Player ────────────────────────────────────────────────────────────────
-  const player = usePlayer([], user);
 
-  const handleTrackDetail = useCallback((track: Track) => {
-    setSelectedTrackDetail(track);
-    setActiveView("track-detail");
-    setShowNowPlaying(true);
-  }, []);
 
-  const handleSelectTrack = useCallback(async (track: Track, contextQueue?: Track[]) => {
-    player.playArbitraryTrack(track, contextQueue);
-
-    // Update local state
-    setRecentlyPlayed((prev) => {
-      const filtered = prev.filter((t) => t.id !== track.id);
-      return [track, ...filtered].slice(0, 20);
-    });
-
-    // Supabase update if logged in
-    if (user && !user.is_anonymous) {
-      const { error } = await supabase
-        .from("recently_played")
-        .upsert({
-          user_id: user.id,
-          track_id: track.id,
-          track_data: track as any,
-          played_at: new Date().toISOString()
-        }, { onConflict: 'user_id,track_id' });
-
-      if (error) console.error("Error saving to recently played:", error);
-    }
-  }, [player, user]);
-
-  const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
-    handleSelectTrack(track);
-
-    // Save search query if provided
-    if (query && query.trim()) {
-      const trimmed = query.trim();
-      setRecentSearches(prev => {
-        const filtered = prev.filter(q => q !== trimmed);
-        return [trimmed, ...filtered].slice(0, 10);
-      });
-
-      // Update recent search tracks (the actual item clicked)
-      setRecentSearchTracks(prev => {
-        const filtered = prev.filter(t => t.id !== track.id);
-        return [track, ...filtered].slice(0, 10);
-      });
-
-      if (user && !user.is_anonymous) {
-        // Save query
-        await supabase.from("recent_searches").insert({
-          user_id: user.id,
-          query: trimmed
-        });
-
-        // Save track item
-        await supabase.from("recent_search_items").upsert({
-          user_id: user.id,
-          track_id: track.id,
-          track_data: track as any,
-          created_at: new Date().toISOString()
-        }, { onConflict: 'user_id,track_id' });
-      }
-    }
-
-    const related = await searchYouTubeMusic("", {
-      mode: "recommend",
-      videoId: track.youtubeId
-    });
-
-    if (related.length > 0) {
-      const relatedFiltered = related.filter(t =>
-        t.id !== track.id &&
-        !t.title.toLowerCase().includes(track.title.toLowerCase())
-      );
-      setSearchResults([track, ...relatedFiltered]);
-      player.setQueue([track, ...relatedFiltered]);
-    } else {
-      setSearchResults([track]);
-      player.setQueue([track]);
-    }
-
-    // Go directly to track detail view to show recommendations
-    handleTrackDetail(track);
-  }, [player, handleTrackDetail, user]);
-
-  const handleRemoveRecentSearch = useCallback(async (trackId: string) => {
-    setRecentSearchTracks(prev => prev.filter(t => t.id !== trackId));
-    
-    if (user && !user.is_anonymous) {
-      await supabase
-        .from("recent_search_items")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("track_id", trackId);
-    }
-  }, [user]);
 
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
