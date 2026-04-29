@@ -131,6 +131,38 @@ export type Database = {
         }
         Relationships: []
       }
+      recent_search_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          track_data: Json
+          track_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          track_data: Json
+          track_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          track_data?: Json
+          track_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recent_search_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recent_searches: {
         Row: {
           created_at: string | null

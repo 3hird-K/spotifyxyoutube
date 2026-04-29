@@ -39,6 +39,7 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentSearchTracks, setRecentSearchTracks] = useState<Track[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [playlistToEdit, setPlaylistToEdit] = useState<Playlist | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -172,29 +173,30 @@ export default function App() {
     fetchRecentSearches();
   }, [user]);
 
-  // Sync recently played from Supabase if logged in
+  // Sync recent search items (tracks) from Supabase if logged in
   useEffect(() => {
     if (!user || user.is_anonymous) return;
 
-    const fetchRecentlyPlayed = async () => {
+    const fetchRecentSearchTracks = async () => {
       const { data, error } = await supabase
-        .from("recently_played")
+        .from("recent_search_items")
         .select("track_data")
         .eq("user_id", user.id)
-        .order("played_at", { ascending: false })
-        .limit(20);
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       if (error || !data) {
-        console.error("Error fetching recently played:", error);
+        console.error("Error fetching recent search items:", error);
         return;
       }
 
-      const tracks = data.map((d: any) => d.track_data as unknown as Track);
-      setRecentlyPlayed(tracks);
+      setRecentSearchTracks(data.map((d: any) => d.track_data as unknown as Track));
     };
 
-    fetchRecentlyPlayed();
+    fetchRecentSearchTracks();
   }, [user]);
+
+  // Sync recently played from Supabase if logged in
 
   // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
   useEffect(() => {
@@ -392,11 +394,26 @@ export default function App() {
         return [trimmed, ...filtered].slice(0, 10);
       });
 
+      // Update recent search tracks (the actual item clicked)
+      setRecentSearchTracks(prev => {
+        const filtered = prev.filter(t => t.id !== track.id);
+        return [track, ...filtered].slice(0, 10);
+      });
+
       if (user && !user.is_anonymous) {
+        // Save query
         await supabase.from("recent_searches").insert({
           user_id: user.id,
           query: trimmed
         });
+
+        // Save track item
+        await supabase.from("recent_search_items").upsert({
+          user_id: user.id,
+          track_id: track.id,
+          track_data: track as any,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'user_id,track_id' });
       }
     }
 
@@ -420,6 +437,18 @@ export default function App() {
     // Go directly to track detail view to show recommendations
     handleTrackDetail(track);
   }, [player, handleTrackDetail, user]);
+
+  const handleRemoveRecentSearch = useCallback(async (trackId: string) => {
+    setRecentSearchTracks(prev => prev.filter(t => t.id !== trackId));
+    
+    if (user && !user.is_anonymous) {
+      await supabase
+        .from("recent_search_items")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("track_id", trackId);
+    }
+  }, [user]);
 
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
@@ -736,12 +765,14 @@ export default function App() {
         </div>
 
         {/* Search Modal */}
-        <SearchModal
+         <SearchModal
           isOpen={isSearchOpen}
           onClose={() => setIsSearchOpen(false)}
           onSelectTrack={handleSelectFromSearch}
           liked={player.liked}
           onToggleLike={player.toggleLike}
+          recentSearches={recentSearchTracks}
+          onRemoveRecent={handleRemoveRecentSearch}
         />
 
         {/* Create Playlist Modal */}
