@@ -8,6 +8,7 @@ export function usePlayer(initialTracks: Track[]) {
   const [queue, setQueue] = useState<Track[]>(initialTracks);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
 
   const setQueueOnly = useCallback((tracks: Track[]) => {
     setQueue(tracks);
@@ -46,9 +47,15 @@ export function usePlayer(initialTracks: Track[]) {
 
   const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
 
+  // Reset ready state when track changes
+  useEffect(() => {
+    setIsPlayerReady(false);
+  }, [currentTrack?.id]);
+
 
   const onPlayerReady = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;
+    setIsPlayerReady(true);
     event.target.setVolume(volume * 100);
     
     // Attempt to force the highest quality stream (HD1080 usually forces the best 160kbps Opus audio track)
@@ -107,15 +114,23 @@ export function usePlayer(initialTracks: Track[]) {
   }, [currentTrack]);
 
   useEffect(() => {
-    if (isPlaying && currentIndex >= 0) {
-      startTimer();
-      playerRef.current?.playVideo();
-    } else {
-      clearTimer();
-      playerRef.current?.pauseVideo();
+    const p = playerRef.current;
+    if (!p || !isPlayerReady || typeof p.playVideo !== 'function') return;
+
+    try {
+      if (isPlaying && currentIndex >= 0) {
+        startTimer();
+        p.playVideo();
+      } else {
+        clearTimer();
+        p.pauseVideo();
+      }
+    } catch (err) {
+      console.warn("YouTube Player API interaction failed:", err);
     }
+
     return clearTimer;
-  }, [isPlaying, currentIndex, currentTrack?.youtubeId]); // Added youtubeId to ensure play triggers on track change
+  }, [isPlaying, currentIndex, currentTrack?.youtubeId, startTimer, isPlayerReady]); // Added isPlayerReady to deps
 
   useEffect(() => {
     if (playerRef.current) {
@@ -129,6 +144,7 @@ export function usePlayer(initialTracks: Track[]) {
       else playerRef.current.unMute();
     }
   }, [isMuted]);
+
 
   // const togglePlay = useCallback(() => {
   //   setIsPlaying((p) => !p);
@@ -186,17 +202,21 @@ export function usePlayer(initialTracks: Track[]) {
       }
       setCurrentTime(0);
       setProgress(0);
+      if (queue.length === 0) return;
+
       if (isShuffle) {
         const nextIdx = Math.floor(Math.random() * queue.length);
         setCurrentIndex(nextIdx);
       } else {
         const nextIdx = currentIndex + 1;
         if (nextIdx >= queue.length) {
-          if (repeatMode === "all" && queue.length > 0) {
+          if (repeatMode === "all") {
             setCurrentIndex(0);
             setIsPlaying(true);
           } else if (currentIndex >= 0) {
-            onExhaustedRef.current(queue[currentIndex] ?? null);
+            // Only trigger exhausted if we're actually at the end
+            const lastTrack = queue[currentIndex] || null;
+            onExhaustedRef.current(lastTrack);
           }
         } else {
           setCurrentIndex(nextIdx);
@@ -261,6 +281,60 @@ export function usePlayer(initialTracks: Track[]) {
       return [...prev, track];
     });
   }, []);
+
+  // Media Session Support (Lockscreen/Notification Controls)
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    if (currentTrack) {
+      // @ts-ignore - MediaMetadata might not be in all TS environments
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.album || "Spotify x YouTube",
+        artwork: [
+          { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        setIsPlaying(true);
+        playerRef.current?.playVideo();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        setIsPlaying(false);
+        playerRef.current?.pauseVideo();
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
+      navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
+      
+      // Optional: Seek handlers
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seek(details.seekTime);
+        }
+      });
+    }
+
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+    return () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
+      }
+    };
+  }, [currentTrack, isPlaying, handleNext, handlePrev, seek]);
+
+
 
   return {
     queue,
