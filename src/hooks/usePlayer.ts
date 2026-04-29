@@ -10,6 +10,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const previousTrackIdRef = useRef<string | null>(null);
 
   const setQueueOnly = useCallback((tracks: Track[]) => {
     setQueue(tracks);
@@ -144,6 +145,16 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     if (!p || !isPlayerReady || typeof p.playVideo !== 'function') return;
 
     try {
+      // If the track ID has changed, manually load it into the existing player
+      if (currentTrack?.youtubeId && currentTrack.youtubeId !== previousTrackIdRef.current) {
+        previousTrackIdRef.current = currentTrack.youtubeId;
+        if (isPlaying) {
+          p.loadVideoById(currentTrack.youtubeId);
+        } else {
+          p.cueVideoById(currentTrack.youtubeId);
+        }
+      }
+
       if (isPlaying && currentIndex >= 0) {
         startTimer();
         p.playVideo();
@@ -156,7 +167,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     }
 
     return clearTimer;
-  }, [isPlaying, currentIndex, currentTrack?.youtubeId, startTimer, isPlayerReady]); // Added isPlayerReady to deps
+  }, [isPlaying, currentIndex, currentTrack?.youtubeId, startTimer, isPlayerReady]);
 
   useEffect(() => {
     if (playerRef.current) {

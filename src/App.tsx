@@ -870,18 +870,17 @@ export default function App() {
             className={`${
               isPip || document.fullscreenElement
                 ? "fixed z-50 rounded-xl border border-zinc-700/50 bg-black shadow-2xl overflow-hidden pointer-events-auto"
-                : "fixed pointer-events-none overflow-hidden opacity-0"
+                : "fixed pointer-events-none overflow-hidden opacity-[0.01]"
             }`}
             style={{
               width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : '1px'),
               height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : '1px'),
-              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : '-10px'),
-              right: isPip ? '16px' : (document.fullscreenElement ? '0' : '-10px'),
+              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : '-5px'),
+              right: isPip ? '16px' : (document.fullscreenElement ? '0' : '-5px'),
               transition: 'all 0.3s ease-in-out',
             }}
           >
             <YouTube
-              key={player.currentTrack.youtubeId}
               videoId={player.currentTrack.youtubeId}
               opts={{
                 width: "100%",
