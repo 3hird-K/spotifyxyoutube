@@ -121,66 +121,68 @@ export default function Sidebar({
 
         {/* Playlists Scroll Area */}
         <ScrollArea className="flex-1 px-3 mt-4">
-          {playlists.length > 0 && (
-            <div className="pb-4">
-              <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
-                Playlists
-              </p>
-              <div className="space-y-0.5">
-                {playlists.map((pl) => (
-                  <div key={pl.id} className="group flex items-center">
-                    <button
-                      onClick={() => setActiveView(`playlist:${pl.id}`)}
-                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${activeView === `playlist:${pl.id}`
-                        ? "text-white bg-zinc-800"
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                        }`}
-                    >
-                      <ListMusic size={16} className="text-zinc-500" />
-                      <span className="truncate">{pl.name}</span>
-                    </button>
-                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all">
+          <div className="pb-32">
+            {playlists.length > 0 && (
+              <div className="pb-4">
+                <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
+                  Playlists
+                </p>
+                <div className="space-y-0.5">
+                  {playlists.map((pl) => (
+                    <div key={pl.id} className="group flex items-center">
                       <button
-                        onClick={() => onEditPlaylist(pl)}
-                        className="p-2 text-zinc-500 hover:text-white transition-all"
+                        onClick={() => setActiveView(`playlist:${pl.id}`)}
+                        className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${activeView === `playlist:${pl.id}`
+                          ? "text-white bg-zinc-800"
+                          : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                          }`}
                       >
-                        <Pencil size={14} />
+                        <ListMusic size={16} className="text-zinc-500" />
+                        <span className="truncate">{pl.name}</span>
                       </button>
-                      <button
-                        onClick={() => onDeletePlaylist(pl)}
-                        className="p-2 text-zinc-500 hover:text-red-500 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={() => onEditPlaylist(pl)}
+                          className="p-2 text-zinc-500 hover:text-white transition-all"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => onDeletePlaylist(pl)}
+                          className="p-2 text-zinc-500 hover:text-red-500 transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {recentlyPlayed.length > 0 && (
-            <div className="pb-4">
-              <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
-                Recently Played
-              </p>
-              <div className="space-y-1">
-                {recentlyPlayed.map((track) => (
-                  <button
-                    key={track.id}
-                    onClick={() => onTrackDetail(track)}
-                    className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md hover:bg-zinc-800/50 transition-colors group"
-                  >
-                    <img src={track.thumbnail} className="w-8 h-8 rounded object-cover shadow-md" alt="" />
-                    <div className="overflow-hidden">
-                      <p className="text-xs font-medium truncate text-zinc-300 group-hover:text-white">{track.title}</p>
-                      <p className="text-[10px] text-zinc-500 truncate">{track.artist}</p>
-                    </div>
-                  </button>
-                ))}
+            {recentlyPlayed.length > 0 && (
+              <div className="pb-4">
+                <p className="text-[10px] text-zinc-500 uppercase font-black px-3 mb-3 tracking-[0.2em]">
+                  Recently Played
+                </p>
+                <div className="space-y-1 z-10">
+                  {recentlyPlayed.slice(0, 5).map((track) => (
+                    <button
+                      key={track.id}
+                      onClick={() => onTrackDetail(track)}
+                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md hover:bg-zinc-800/50 transition-colors group"
+                    >
+                      <img src={track.thumbnail} className="w-8 h-8 rounded object-cover shadow-md" alt="" />
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-medium truncate text-zinc-300 group-hover:text-white">{track.title}</p>
+                        <p className="text-[10px] text-zinc-500 truncate">{track.artist}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </ScrollArea>
 
 

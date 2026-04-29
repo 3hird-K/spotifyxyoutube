@@ -34,45 +34,56 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
   const isLiked = liked.has(track.id);
 
   return (
-    <div className="flex flex-col items-center gap-6 px-6 py-8 h-full">
-      {/* Album art */}
-      {/* <div className="relative group w-full max-w-xs aspect-square rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
-        <img
-          src={track.thumbnail}
-          alt={track.album}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      </div> */}
-
-      {/* Info */}
-      <div className="w-full flex items-start justify-between gap-1">
-        <div className="overflow-hidden">
-          <h2 className="text-xl font-bold text-white truncate">{track.title}</h2>
-          <p className="text-sm text-zinc-400 truncate">{track.artist}</p>
-          <p className="text-xs text-zinc-600 truncate mt-0.5">{track.album} · {track.year}</p>
-        </div>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                onClick={() => onToggleLike(track)}
-                className={`shrink-0 mt-1 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
-                  }`}
-              >
-                <Heart size={22} className={isLiked ? "fill-[#1DB954]" : ""} />
-              </button>
-            }
+    <div className="flex flex-col h-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 bg-black">
+      {/* Video Dock Container - Full Width for Video */}
+      <div 
+        id="sidebar-video-dock"
+        className="relative w-full aspect-square overflow-hidden shadow-2xl bg-black/60 flex items-center justify-center shrink-0 border-b border-white/5"
+      >
+        {!track.youtubeId && (
+          <img
+            src={track.thumbnail}
+            alt={track.album}
+            className="w-full h-full object-cover opacity-60 transition-opacity duration-700"
           />
-          <TooltipContent side="left">{isLiked ? "Remove from Liked" : "Save to Liked"}</TooltipContent>
-        </Tooltip>
+        )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none">
+          <Music2 size={32} className="mb-2 opacity-20" />
+          <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-20">Video Engine Active</p>
+        </div>
       </div>
 
+      {/* Content Wrapper - Padded for text */}
+      <div className="flex flex-col gap-8 px-6 py-8">
+        {/* Info */}
+        <div className="w-full flex flex-col gap-2 shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="overflow-hidden flex-1">
+              <h2 className="text-2xl font-black text-white leading-tight tracking-tight break-words">{track.title}</h2>
+              <p className="text-base text-zinc-400 font-bold mt-2 hover:text-white transition-colors cursor-pointer">{track.artist}</p>
+            </div>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    onClick={() => onToggleLike(track)}
+                    className={`shrink-0 p-2 rounded-full transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"
+                      }`}
+                  >
+                    <Heart size={26} className={isLiked ? "fill-[#1DB954]" : ""} />
+                  </button>
+                }
+              />
+              <TooltipContent side="left">{isLiked ? "Remove from Liked" : "Save to Liked"}</TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-1">{track.album} • {track.year}</p>
+        </div>
+
+
+
       {/* Divider */}
-      <Separator className="w-full bg-zinc-800" />
+      <Separator className="w-full bg-zinc-800/50" />
 
       {/* Links section */}
       <div className="w-full space-y-3">
@@ -157,9 +168,10 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
           </div>
         )}
       </div>
+    </div>
 
-      {/* Genre badge */}
-      <div className="mt-auto">
+    {/* Genre badge */}
+    <div className="mt-auto px-6 pb-8">
         <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-xs font-semibold px-3 py-1 rounded-full h-auto">
           {track.genre}
         </Badge>

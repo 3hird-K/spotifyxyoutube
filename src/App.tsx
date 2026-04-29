@@ -48,8 +48,12 @@ export default function App() {
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // -- Player ────────────────────────────────────────────────────────────────
+  const player = usePlayer([], user);
+
   // -- Video / PIP State --
   const [isPip, setIsPip] = useState(false);
+  const [dockRect, setDockRect] = useState<DOMRect | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const toggleFullscreen = () => {
@@ -88,6 +92,35 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Sync player position with the sidebar dock
+  useEffect(() => {
+    if (!showNowPlaying || isPip || document.fullscreenElement) {
+      setDockRect(null);
+      return;
+    }
+
+    let rafId: number = 0;
+    const updateDock = () => {
+      const dock = document.getElementById("sidebar-video-dock");
+      if (dock && dock.offsetWidth > 0) {
+        setDockRect(dock.getBoundingClientRect());
+      } else {
+        setDockRect(null);
+      }
+      rafId = requestAnimationFrame(updateDock);
+    };
+
+    rafId = requestAnimationFrame(updateDock);
+    window.addEventListener("resize", updateDock);
+    window.addEventListener("scroll", updateDock, true);
+
+    return () => {
+      window.removeEventListener("resize", updateDock);
+      window.removeEventListener("scroll", updateDock, true);
+      cancelAnimationFrame(rafId);
+    };
+  }, [showNowPlaying, isPip, player.currentTrack]);
+
   // ── Playlist state (persisted to localStorage) ───────────────────────────
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
     try {
@@ -108,8 +141,6 @@ export default function App() {
     }
   });
 
-  // ── Player ────────────────────────────────────────────────────────────────
-  const player = usePlayer([], user);
 
   const handleTrackDetail = useCallback((track: Track) => {
     setSelectedTrackDetail(track);
@@ -868,36 +899,42 @@ export default function App() {
           <div
             ref={videoContainerRef}
             className={`${
-              isPip || document.fullscreenElement
-                ? "fixed z-50 rounded-xl border border-zinc-700/50 bg-black shadow-2xl overflow-hidden pointer-events-auto"
-                : "fixed pointer-events-none overflow-hidden opacity-[0.01]"
-            }`}
+              isPip || document.fullscreenElement || (showNowPlaying && dockRect)
+                ? "fixed z-50 overflow-hidden shadow-2xl bg-black"
+                : "fixed pointer-events-none overflow-hidden opacity-0 z-[-1]"
+            } ${isPip || document.fullscreenElement ? "rounded-xl border border-zinc-700/50" : ""}`}
             style={{
-              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : '1px'),
-              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : '1px'),
-              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : '-5px'),
-              right: isPip ? '16px' : (document.fullscreenElement ? '0' : '-5px'),
-              transition: 'all 0.3s ease-in-out',
+              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 0 ? `${dockRect.width}px` : '1px')),
+              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : (dockRect && dockRect.height > 0 ? `${dockRect.height}px` : '1px')),
+              top: isPip ? 'auto' : (document.fullscreenElement ? '0' : (dockRect ? `${dockRect.top}px` : 'auto')),
+              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : (dockRect ? 'auto' : '0')),
+              left: isPip || document.fullscreenElement ? 'auto' : (dockRect ? `${dockRect.left}px` : '-9999px'),
+              right: isPip ? '16px' : (document.fullscreenElement ? '0' : 'auto'),
+              borderRadius: isPip || document.fullscreenElement || !dockRect ? '12px' : '16px',
+              pointerEvents: isPip || document.fullscreenElement ? 'auto' : 'none',
+              transition: isPip || document.fullscreenElement ? 'all 0.3s ease-in-out' : 'none',
             }}
           >
-            <YouTube
-              videoId={player.currentTrack.youtubeId}
-              opts={{
-                width: "100%",
-                height: "100%",
-                playerVars: {
-                  autoplay: 1,
-                  controls: 0,
-                  modestbranding: 1,
-                  playsinline: 1,
-                  rel: 0,
-                  vq: "hd1080",
-                },
-              }}
-              className="w-full h-full"
-              onReady={player.onPlayerReady}
-              onStateChange={player.onPlayerStateChange}
-            />
+            <div className={`w-full h-full overflow-hidden ${isPip || document.fullscreenElement ? "scale-100" : "scale-[2.2] origin-center"}`}>
+              <YouTube
+                videoId={player.currentTrack.youtubeId}
+                opts={{
+                  width: "100%",
+                  height: "100%",
+                  playerVars: {
+                    autoplay: 1,
+                    controls: 0,
+                    modestbranding: 1,
+                    playsinline: 1,
+                    rel: 0,
+                    vq: "hd1080",
+                  },
+                }}
+                className="w-full h-full"
+                onReady={player.onPlayerReady}
+                onStateChange={player.onPlayerStateChange}
+              />
+            </div>
             {isPip && !document.fullscreenElement && (
               <button
                 onClick={() => setIsPip(false)}

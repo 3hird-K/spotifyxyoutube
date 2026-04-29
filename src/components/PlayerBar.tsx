@@ -73,7 +73,7 @@ export default function PlayerBar({
   const duration = track?.duration ?? 0;
 
   return (
-    <footer className="bg-zinc-900 border-t border-zinc-800 h-[90px] px-4 flex items-center justify-between">
+    <footer className="bg-zinc-900 border-t border-zinc-800 h-[90px] px-4 flex items-center justify-between z-1000">
       <div className="flex items-center gap-3 w-full sm:w-[280px] shrink-0">
         <div
           onClick={() => onTrackDetail?.(track)}
@@ -120,35 +120,35 @@ export default function PlayerBar({
           {/* Shuffle */}
           <Tooltip>
             <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onToggleShuffle}
-                className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                  }`}
-              >
-                <Shuffle size={18} />
-              </Button>
-            }
-          />
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleShuffle}
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                    }`}
+                >
+                  <Shuffle size={18} />
+                </Button>
+              }
+            />
             <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
           </Tooltip>
 
           {/* Prev */}
           <Tooltip>
             <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onPrev}
-                className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
-              >
-                <SkipBack size={20} />
-              </Button>
-            }
-          />
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onPrev}
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+                >
+                  <SkipBack size={20} />
+                </Button>
+              }
+            />
             <TooltipContent>Previous</TooltipContent>
           </Tooltip>
 
@@ -169,38 +169,38 @@ export default function PlayerBar({
           {/* Next */}
           <Tooltip>
             <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onNext}
-                className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
-              >
-                <SkipForward size={20} />
-              </Button>
-            }
-          />
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onNext}
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+                >
+                  <SkipForward size={20} />
+                </Button>
+              }
+            />
             <TooltipContent>Next</TooltipContent>
           </Tooltip>
 
           {/* Repeat */}
           <Tooltip>
             <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onToggleRepeat}
-                className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                  }`}
-              >
-                {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
-                {repeatMode !== "none" && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
-                )}
-              </Button>
-            }
-          />
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleRepeat}
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                    }`}
+                >
+                  {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                  {repeatMode !== "none" && (
+                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
+                  )}
+                </Button>
+              }
+            />
             <TooltipContent>
               {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
             </TooltipContent>

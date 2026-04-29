@@ -10,6 +10,7 @@ export interface Track {
   year: number;
   spotifyUrl?: string;
   youtubeUrl: string;
+  description?: string;
 }
 
 // Global list of available genres for filtering

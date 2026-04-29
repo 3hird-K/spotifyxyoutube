@@ -213,6 +213,7 @@ export default function MainContent(props: MainContentProps) {
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto">
+      <div className="pb-32">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50 z-1000">
         <div className="flex flex-col gap-4">
@@ -508,6 +509,7 @@ export default function MainContent(props: MainContentProps) {
             </div>
           )
         )}
+      </div>
       </div>
     </main>
   );

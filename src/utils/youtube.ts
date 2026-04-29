@@ -88,7 +88,7 @@ export const searchYouTubeMusic = async (
           id: videoIds,
           key: API_KEY,
           fields:
-            "items(id,snippet(title,channelTitle,thumbnails,publishedAt),contentDetails(duration))"
+            "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
         },
       });
 
@@ -103,6 +103,7 @@ export const searchYouTubeMusic = async (
         genre: "Mixed",
         year: new Date(video.snippet.publishedAt).getFullYear(),
         youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
+        description: video.snippet.description,
       }));
     }
 
@@ -135,7 +136,7 @@ export const searchYouTubeMusic = async (
           id: videoIds,
           key: API_KEY,
           fields:
-            "items(id,snippet(title,channelTitle,thumbnails,publishedAt),contentDetails(duration))"
+            "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
         },
       });
 
@@ -150,6 +151,7 @@ export const searchYouTubeMusic = async (
         genre: "Pop",
         year: new Date(video.snippet.publishedAt).getFullYear(),
         youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
+        description: video.snippet.description,
       }));
     }
 

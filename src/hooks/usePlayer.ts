@@ -11,6 +11,18 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const previousTrackIdRef = useRef<string | null>(null);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize silent audio heartbeat to keep the tab alive in background
+  useEffect(() => {
+    const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==");
+    audio.loop = true;
+    silentAudioRef.current = audio;
+    return () => {
+      audio.pause();
+      silentAudioRef.current = null;
+    };
+  }, []);
 
   const setQueueOnly = useCallback((tracks: Track[]) => {
     setQueue(tracks);
@@ -194,8 +206,10 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
       if (next) {
         playerRef.current?.playVideo();
+        silentAudioRef.current?.play().catch(() => {});
       } else {
         playerRef.current?.pauseVideo();
+        silentAudioRef.current?.pause();
       }
 
       return next;
@@ -245,6 +259,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const handleNext = useCallback(
     (auto = false) => {
+      // Start silent heartbeat for auto-played next tracks to keep tab alive
+      if (auto) silentAudioRef.current?.play().catch(() => {});
+
       if (repeatMode === "one" && auto) {
         if (playerRef.current) {
           playerRef.current.seekTo(0);
