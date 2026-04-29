@@ -197,6 +197,27 @@ export default function App() {
   }, [user]);
 
   // Sync recently played from Supabase if logged in
+  useEffect(() => {
+    if (!user || user.is_anonymous) return;
+
+    const fetchRecentlyPlayed = async () => {
+      const { data, error } = await supabase
+        .from("recently_played")
+        .select("track_data")
+        .eq("user_id", user.id)
+        .order("played_at", { ascending: false })
+        .limit(20);
+
+      if (error || !data) {
+        console.error("Error fetching recently played:", error);
+        return;
+      }
+
+      setRecentlyPlayed(data.map((d: any) => d.track_data as unknown as Track));
+    };
+
+    fetchRecentlyPlayed();
+  }, [user]);
 
   // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
   useEffect(() => {
