@@ -241,12 +241,12 @@ export default function MainContent(props: MainContentProps) {
               <Button
                 variant="outline"
                 onClick={onOpenSearch}
-                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 h-10 whitespace-nowrap shrink-0"
+                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
               >
                 <Search size={16} />
                 <span className="hidden sm:inline">Search tracks, artists…</span>
                 <span className="sm:hidden">Search</span>
-                <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 bg-zinc-700/50 rounded text-xs text-zinc-400">
+                <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs">
                   ⌘K
                 </kbd>
               </Button>

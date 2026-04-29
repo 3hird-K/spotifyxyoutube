@@ -71,7 +71,7 @@ export function HorizontalScrollSection({ title, children, onShowAll }: Horizont
                 <div
                     ref={scrollRef}
                     onScroll={handleScroll}
-                    className="flex gap-4 md:gap-6 overflow-x-auto scroll-smooth scrollbar-none pb-4 px-1"
+                    className="flex overflow-x-auto scroll-smooth scrollbar-none pb-4"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                     {children}
