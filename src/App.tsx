@@ -163,13 +163,16 @@ export default function App() {
     setShowNowPlaying(true);
   }, []);
 
-  const handleSelectFromSearch = useCallback(async (track: Track) => {
+  const handleSelectTrack = useCallback((track: Track) => {
     player.playArbitraryTrack(track);
-
     setRecentlyPlayed((prev) => {
       const filtered = prev.filter((t) => t.id !== track.id);
       return [track, ...filtered].slice(0, 20);
     });
+  }, [player]);
+
+  const handleSelectFromSearch = useCallback(async (track: Track) => {
+    handleSelectTrack(track);
 
     const query = `${track.artist} ${track.title} music`;
     const related = await searchYouTubeMusic(query);
@@ -229,7 +232,11 @@ export default function App() {
           <div className="flex flex-1 min-h-0">
             {/* Sidebar */}
             <Sidebar
-              onSelect={player.selectTrack}
+              onSelect={(idx) => {
+                 const t = player.queue[idx];
+                 if (t) handleSelectTrack(t);
+                 else player.selectTrack(idx);
+              }}
               liked={player.liked}
               activeView={activeView}
               setActiveView={setActiveView}
@@ -246,7 +253,7 @@ export default function App() {
               isPlaying={player.isPlaying}
               liked={player.liked}
               likedTracks={player.likedTracks}
-              onSelect={(track) => player.playArbitraryTrack(track)}
+              onSelect={handleSelectTrack}
               onToggleLike={player.toggleLike}
               onTogglePlay={player.togglePlay}
               onQueueChange={player.setQueue}

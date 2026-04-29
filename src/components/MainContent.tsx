@@ -19,6 +19,7 @@ import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HorizontalScrollSection } from "./HorizontalScrollSection";
 
 interface MainContentProps {
   currentTrack: Track | null;
@@ -289,7 +290,6 @@ export default function MainContent(props: MainContentProps) {
           activeView === "home" ? (
             <div className="space-y-6 sm:space-y-8 pb-8">
               {/* Top Grid - Recent Playlists / Liked */}
-              {/* Top Grid - Recent Playlists / Liked */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                 {/* Liked Songs */}
                 <div
@@ -355,64 +355,56 @@ export default function MainContent(props: MainContentProps) {
               </div>
 
               {/* Recommended Stations */}
-              <section>
-                <div className="flex items-end justify-between mb-4">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white">Recommended Stations</h2>
-                  <span className="text-xs sm:text-sm text-zinc-400 font-bold hover:underline cursor-pointer uppercase tracking-wider">Show all</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-                  {apiTracks.slice(0, 6).map(track => (
+              <HorizontalScrollSection
+                title="Recommended Stations"
+              // onShowAll={() => console.log("Show all recommended")}
+              >
+                {apiTracks.slice(0, 15).map(track => (
+                  <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                     <HomeCard
-                      key={`rec-${track.id}`}
                       track={track}
                       onSelect={onSelect}
                       title={track.artist}
                       subtitle={`With ${track.title} and more`}
                     />
-                  ))}
-                </div>
-              </section>
-
-              {/* Jump back in */}
-              {recentlyPlayed.length > 0 && (
-                <section>
-                  <div className="flex items-end justify-between mb-4">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer">Jump back in</h2>
-                    <span className="text-xs sm:text-sm text-zinc-400 font-bold hover:underline cursor-pointer uppercase tracking-wider">Show all</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-                    {recentlyPlayed.slice(0, 6).map(track => (
+                ))}
+              </HorizontalScrollSection>
+
+              {recentlyPlayed.length > 0 && (
+                <HorizontalScrollSection
+                  title="Recently played"
+                // onShowAll={() => console.log("Show all recent")}
+                >
+                  {recentlyPlayed.map(track => (
+                    <div key={`recent-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                       <HomeCard
-                        key={`recent-${track.id}`}
                         track={track}
                         onSelect={onSelect}
                         title={track.title}
                         subtitle={`Artist • ${track.artist}`}
-                        rounded
                       />
-                    ))}
-                  </div>
-                </section>
+                    </div>
+                  ))}
+                </HorizontalScrollSection>
               )}
 
               {/* Popular radio */}
-              <section>
-                <div className="flex items-end justify-between mb-4">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer">Popular radio</h2>
-                  <span className="text-xs sm:text-sm text-zinc-400 font-bold hover:underline cursor-pointer uppercase tracking-wider">Show all</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-                  {apiTracks.slice(6, 12).map(track => (
+              <HorizontalScrollSection
+                title="Popular radio"
+                onShowAll={() => console.log("Show all radio")}
+              >
+                {[...apiTracks].reverse().slice(0, 15).map(track => (
+                  <div key={`pop-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                     <HomeCard
-                      key={`pop-${track.id}`}
                       track={track}
                       onSelect={onSelect}
                       title={track.artist}
                       subtitle={`Radio based on ${track.artist}`}
                     />
-                  ))}
-                </div>
-              </section>
+                  </div>
+                ))}
+              </HorizontalScrollSection>
 
             </div>
           ) : (

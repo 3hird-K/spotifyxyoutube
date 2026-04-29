@@ -17,12 +17,12 @@ export function HomeCard({
   return (
     <div
       onClick={() => onSelect(track)}
-      className="group bg-zinc-900 hover:bg-zinc-800 p-3 rounded-2xl transition-all duration-300 cursor-pointer hover:shadow-2xl hover:-translate-y-1"
+      className="group/card bg-zinc-900 hover:bg-zinc-800 p-3 rounded-2xl transition-all duration-300 cursor-pointer hover:shadow-2xl hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative mb-4">
         <div
-          className={`relative aspect-square overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${rounded ? "rounded-full" : "rounded-xl"
+          className={`relative aspect-square overflow-hidden shadow-md group-hover/card:shadow-xl transition-all duration-300 ${rounded ? "rounded-full" : "rounded-xl"
             }`}
         >
           {/* Subtle inner ring like Spotify/BTS card */}
@@ -31,7 +31,7 @@ export function HomeCard({
           <img
             src={track.thumbnail}
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-[1.04]"
             onError={(e) => {
               (e.target as HTMLImageElement).src = "/images/default-cover.jpg";
             }}
@@ -43,7 +43,7 @@ export function HomeCard({
               e.stopPropagation();
               onSelect(track);
             }}
-            className="absolute bottom-3 right-3 w-12 h-12 bg-[#1ed760] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 z-20"
+            className="absolute bottom-3 right-3 w-12 h-12 bg-[#1ed760] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-4 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-200 hover:scale-105 z-20"
           >
             <Play size={26} className="text-black ml-0.5 fill-black" />
           </button>
