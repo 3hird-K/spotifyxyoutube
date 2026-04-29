@@ -314,11 +314,13 @@ export default function App() {
       }
 
       const tracks = data.map((d: any) => d.track_data as unknown as Track);
-      setRecentlyPlayed(tracks);
+      // Strictly limit to 20 most recent
+      const limitedTracks = tracks.slice(0, 20);
+      setRecentlyPlayed(limitedTracks);
 
       // Load last played song into player bar if nothing is playing
-      if (tracks.length > 0 && player.currentIndex === -1) {
-        player.loadTrack(tracks[0], tracks);
+      if (limitedTracks.length > 0 && player.currentIndex === -1) {
+        player.loadTrack(limitedTracks[0], limitedTracks);
       }
     };
 
@@ -620,46 +622,7 @@ export default function App() {
                 </div>
 
                 <div className="w-full flex justify-center">
-                  {player.currentTrack && (
-                    <div
-                      ref={videoContainerRef}
-                      className={`relative overflow-hidden bg-black transition-all shadow-2xl shadow-black/50 ${isPip
-                        ? "fixed bottom-[100px] aspect-video z-50 rounded-xl border border-zinc-700/50"
-                        : "w-full aspect-[4/5]"
-                        }`}
-                    >
-                      <YouTube
-                        key={player.currentTrack.youtubeId}
-                        videoId={player.currentTrack.youtubeId}
-                        opts={{
-                          width: "100%",
-                          height: "100%",
-                          playerVars: {
-                            autoplay: 0,
-                            controls: 0,
-                            modestbranding: 1,
-                            playsinline: 1,
-                            rel: 0,
-                            vq: "hd1080", // Force HD resolution
-                          },
-                        }}
-                        className={`absolute inset-0 w-full h-full pointer-events-none transition-transform ${isPip || document.fullscreenElement ? "" : "scale-[2.2] origin-center"
-                          }`}
-                        onReady={player.onPlayerReady}
-                        onStateChange={player.onPlayerStateChange}
-                      />
-
-                      {/* PIP Close Button overlay */}
-                      {isPip && (
-                        <button
-                          onClick={() => setIsPip(false)}
-                          className="absolute top-2 right-2 bg-black/60 hover:bg-black text-white p-1.5 rounded-full backdrop-blur-md transition-colors"
-                        >
-                          <PanelRightClose size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  {/* The video is now rendered globally below to support background playback */}
                 </div>
                 {/* ----------------------------- */}
 
@@ -795,7 +758,7 @@ export default function App() {
         </div>
 
         {/* Search Modal */}
-         <SearchModal
+        <SearchModal
           isOpen={isSearchOpen}
           onClose={() => setIsSearchOpen(false)}
           onSelectTrack={handleSelectFromSearch}
@@ -899,6 +862,53 @@ export default function App() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Master YouTube Player (Single Instance for Background & Visual Play) */}
+        {player.currentTrack && (
+          <div
+            ref={videoContainerRef}
+            className={`${
+              isPip || document.fullscreenElement
+                ? "fixed z-50 rounded-xl border border-zinc-700/50 bg-black shadow-2xl overflow-hidden pointer-events-auto"
+                : "fixed pointer-events-none overflow-hidden opacity-0"
+            }`}
+            style={{
+              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : '1px'),
+              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : '1px'),
+              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : '-10px'),
+              right: isPip ? '16px' : (document.fullscreenElement ? '0' : '-10px'),
+              transition: 'all 0.3s ease-in-out',
+            }}
+          >
+            <YouTube
+              key={player.currentTrack.youtubeId}
+              videoId={player.currentTrack.youtubeId}
+              opts={{
+                width: "100%",
+                height: "100%",
+                playerVars: {
+                  autoplay: 1,
+                  controls: 0,
+                  modestbranding: 1,
+                  playsinline: 1,
+                  rel: 0,
+                  vq: "hd1080",
+                },
+              }}
+              className="w-full h-full"
+              onReady={player.onPlayerReady}
+              onStateChange={player.onPlayerStateChange}
+            />
+            {isPip && !document.fullscreenElement && (
+              <button
+                onClick={() => setIsPip(false)}
+                className="absolute top-2 right-2 bg-black/60 hover:bg-black text-white p-1.5 rounded-full backdrop-blur-md transition-colors"
+              >
+                <PanelRightClose size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );
