@@ -105,11 +105,11 @@ export default function PlayerBar({
                   onToggleLike(track);
                 }}
                 className={`shrink-0 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95 hover:bg-zinc-800/50 ${isLiked ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
-              />
+              >
+                <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
+              </button>
             }
-          >
-            <Heart size={16} className={isLiked ? "fill-[#1DB954]" : ""} />
-          </TooltipTrigger>
+          />
           <TooltipContent>{isLiked ? "Remove from Liked" : "Save to Liked"}</TooltipContent>
         </Tooltip>
       </div>
@@ -120,35 +120,35 @@ export default function PlayerBar({
           {/* Shuffle */}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onToggleShuffle}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                    }`}
-                />
-              }
-            >
-              <Shuffle size={18} />
-            </TooltipTrigger>
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onToggleShuffle}
+                className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  }`}
+              >
+                <Shuffle size={18} />
+              </Button>
+            }
+          />
             <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
           </Tooltip>
 
           {/* Prev */}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onPrev}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
-                />
-              }
-            >
-              <SkipBack size={20} />
-            </TooltipTrigger>
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onPrev}
+                className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+              >
+                <SkipBack size={20} />
+              </Button>
+            }
+          />
             <TooltipContent>Previous</TooltipContent>
           </Tooltip>
 
@@ -169,38 +169,38 @@ export default function PlayerBar({
           {/* Next */}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onNext}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
-                />
-              }
-            >
-              <SkipForward size={20} />
-            </TooltipTrigger>
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onNext}
+                className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+              >
+                <SkipForward size={20} />
+              </Button>
+            }
+          />
             <TooltipContent>Next</TooltipContent>
           </Tooltip>
 
           {/* Repeat */}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onToggleRepeat}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
-                    }`}
-                />
-              }
-            >
-              {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
-              {repeatMode !== "none" && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
-              )}
-            </TooltipTrigger>
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onToggleRepeat}
+                className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  }`}
+              >
+                {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                {repeatMode !== "none" && (
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
+                )}
+              </Button>
+            }
+          />
             <TooltipContent>
               {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
             </TooltipContent>
@@ -235,11 +235,11 @@ export default function PlayerBar({
                 size="icon-xs"
                 onClick={onToggleMute}
                 className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50"
-              />
+              >
+                {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </Button>
             }
-          >
-            {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </TooltipTrigger>
+          />
           <TooltipContent>{isMuted ? "Unmute" : "Mute"}</TooltipContent>
         </Tooltip>
         <Slider
@@ -255,11 +255,11 @@ export default function PlayerBar({
               <button
                 onClick={onTogglePip}
                 className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50 p-1.5 rounded-full ml-1"
-              />
+              >
+                <PictureInPicture2 size={16} />
+              </button>
             }
-          >
-            <PictureInPicture2 size={16} />
-          </TooltipTrigger>
+          />
           <TooltipContent>Mini Player</TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -268,11 +268,11 @@ export default function PlayerBar({
               <button
                 onClick={onToggleFullscreen}
                 className="text-zinc-400 hover:text-white transition-colors hover:bg-zinc-800/50 p-1.5 rounded-full"
-              />
+              >
+                <Maximize2 size={16} />
+              </button>
             }
-          >
-            <Maximize2 size={16} />
-          </TooltipTrigger>
+          />
           <TooltipContent>Full screen</TooltipContent>
         </Tooltip>
       </div>

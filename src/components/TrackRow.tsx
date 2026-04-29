@@ -109,11 +109,11 @@ export function TrackRow({
                 onClick={(e) => { e.stopPropagation(); onToggleLike(track); }}
                 className={`transition-all hover:scale-110 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-zinc-700/50 ${isLiked ? "!opacity-100 text-[#1DB954]" : "text-zinc-600"
                   }`}
-              />
+              >
+                <Heart size={15} className={isLiked ? "fill-[#1DB954]" : ""} />
+              </Button>
             }
-          >
-            <Heart size={15} className={isLiked ? "fill-[#1DB954]" : ""} />
-          </TooltipTrigger>
+          />
           <TooltipContent>{isLiked ? "Remove from Liked" : "Add to Liked"}</TooltipContent>
         </Tooltip>
         <span className="text-xs sm:text-sm text-zinc-500 tabular-nums">{formatTime(track.duration)}</span>
@@ -200,11 +200,11 @@ export function TrackRow({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-600 hover:text-red-500 transition-colors p-1 inline-flex"
-              />
+              >
+                <ExternalLink size={13} />
+              </a>
             }
-          >
-            <ExternalLink size={13} />
-          </TooltipTrigger>
+          />
           <TooltipContent>Watch on YouTube</TooltipContent>
         </Tooltip>
 
@@ -218,11 +218,11 @@ export function TrackRow({
                   size="icon-xs"
                   onClick={() => onRemoveFromPlaylist(activePlaylistId, track.id)}
                   className="text-zinc-600 hover:text-red-400 transition-colors hover:bg-zinc-700/50"
-                />
+                >
+                  <Trash2 size={13} />
+                </Button>
               }
-            >
-              <Trash2 size={13} />
-            </TooltipTrigger>
+            />
             <TooltipContent>Remove from playlist</TooltipContent>
           </Tooltip>
         ) : (
