@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, ListMusic, Trash2, LogOut, LogIn } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../public/images/spotifylogo.png';
-import { supabase } from "../lib/supabase"; // Added for Logout
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +26,6 @@ interface SidebarProps {
   onDeletePlaylist: (playlist: Playlist) => void;
   recentlyPlayed: Track[];
   onTrackDetail: (track: Track) => void;
-  user: any;
-  currentTrack: Track | null;
 }
 
 export default function Sidebar({
@@ -40,8 +37,6 @@ export default function Sidebar({
   onDeletePlaylist,
   recentlyPlayed,
   onTrackDetail,
-  user,
-  currentTrack,
 }: SidebarProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -53,16 +48,6 @@ export default function Sidebar({
     setNewPlaylistName("");
     setShowCreateModal(false);
   };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  // Helper for Guest vs Google User
-  const isGuest = user?.is_anonymous;
-  const displayName = isGuest ? "Guest User" : user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
-  const avatarUrl = !isGuest && user?.user_metadata?.avatar_url ? user.user_metadata.avatar_url : null;
-  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "U";
 
   return (
     <>

@@ -45,7 +45,7 @@ export function usePlayer(initialTracks: Track[]) {
   const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => { });
 
   const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
-  const ytPlayerRef = useRef<any>(null);
+
 
   const onPlayerReady = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;

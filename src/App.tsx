@@ -157,10 +157,6 @@ export default function App() {
   // ── Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([]);
 
-  // const handleTrackDetail = useCallback((track: Track) => {
-  //   setSelectedTrackDetail(track);
-  //   setActiveView("track-detail");
-  // }, []);
   const handleTrackDetail = useCallback((track: Track) => {
     setSelectedTrackDetail(track);
     setActiveView("track-detail");
@@ -242,8 +238,6 @@ export default function App() {
               onDeletePlaylist={requestDeletePlaylist}
               recentlyPlayed={recentlyPlayed}
               onTrackDetail={handleTrackDetail}
-              user={user}
-              currentTrack={player.currentTrack}
             />
 
             {/* Main content */}
@@ -274,7 +268,7 @@ export default function App() {
             />
 
             <aside
-              className={`transition-all duration-300 ease-in-out bg-zinc-950 border-zinc-800 flex-col shrink-0 overflow-hidden ${showNowPlaying ? "w-72 lg:flex border-l border-zinc-800" : "w-0 border-none opacity-0"
+              className={`transition-all duration-300 ease-in-out bg-zinc-950 border-zinc-800 shrink-0 overflow-hidden ${showNowPlaying ? "w-72 hidden lg:flex flex-col border-l border-zinc-800" : "w-0 hidden border-none opacity-0"
                 }`}
             >
               {/* Inner container to maintain 72 width (18rem) even when sliding closed */}
