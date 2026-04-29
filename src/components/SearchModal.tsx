@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { MusicLoader } from "./MusicLoader";
 
 interface SearchModalProps {
   isOpen: boolean;

@@ -1,40 +1,37 @@
-import { cn } from "@/lib/utils";
+import { cn } from "../utils/cn";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Music, Disc3, Radio } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const musicLoaderVariants = cva(
-  "relative flex items-center justify-center overflow-hidden rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl",
-  {
-    variants: {
-      variant: {
-        wave: "flex-col gap-6 p-8",
-        circular: "w-48 h-48",
-      },
-      size: {
-        sm: "gap-4 p-6",
-        md: "",
-        lg: "gap-8 p-10",
-      },
+const musicLoaderVariants = cva("relative flex items-center justify-center", {
+  variants: {
+    variant: {
+      wave: "flex-col gap-6",
+      circular: "w-48 h-48",
     },
-    compoundVariants: [
-      {
-        variant: "circular",
-        size: "sm",
-        className: "w-36 h-36",
-      },
-      {
-        variant: "circular",
-        size: "lg",
-        className: "w-64 h-64",
-      },
-    ],
-    defaultVariants: {
-      variant: "wave",
-      size: "md",
+    size: {
+      sm: "gap-4",
+      md: "",
+      lg: "gap-8",
     },
-  }
-);
+  },
+  compoundVariants: [
+    {
+      variant: "circular",
+      size: "sm",
+      className: "w-36 h-36",
+    },
+    {
+      variant: "circular",
+      size: "lg",
+      className: "w-64 h-64",
+    },
+  ],
+  defaultVariants: {
+    variant: "wave",
+    size: "md",
+  },
+});
 
 interface MusicLoaderProps extends VariantProps<typeof musicLoaderVariants> {
   className?: string;
@@ -52,7 +49,24 @@ const sampleTracks = [
   { name: "Starlight", artist: "Cosmic Drifter" },
 ];
 
-export function MusicLoader({
+export function MusicLoader() {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      {/* Deep Spotify-style black */}
+      <div className="absolute inset-0 bg-[#050505]" />
+
+      {/* Subtle dark overlay (gives depth, NOT blur-heavy) */}
+      <div className="absolute inset-0 bg-black/60" />
+
+      {/* VERY subtle green ambient glow (Spotify feel) */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(29,185,84,0.06),transparent_70%)]" />
+
+      <FullscreenLoader variant="circular" size="lg" />
+    </div>
+  );
+}
+
+export function FullscreenLoader({
   variant = "wave",
   size = "md",
   className,
@@ -65,9 +79,9 @@ export function MusicLoader({
     name: initialTrackName,
     artist: initialArtistName ?? "Unknown Artist",
   });
-  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
 
-  // Cycle through sample tracks (optional)
+  const [trackIndex, setTrackIndex] = useState(0);
+
   useEffect(() => {
     if (!cycleTracks) return;
 
@@ -76,131 +90,93 @@ export function MusicLoader({
       index = (index + 1) % sampleTracks.length;
       const track = sampleTracks[index];
       setTrackInfo({ name: track.name, artist: track.artist });
+      setTrackIndex(index);
     }, 4000);
 
     return () => clearInterval(interval);
   }, [cycleTracks]);
 
-  // Handle ripple effect
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const id = Date.now();
-    
-    setRipples((prev) => [...prev, { id, x, y }]);
-    setTimeout(() => {
-      setRipples((prev) => prev.filter((r) => r.id !== id));
-    }, 600);
-  };
-
   if (variant === "circular") {
     return (
       <div
         className={cn(musicLoaderVariants({ variant, size, className }))}
-        onClick={handleClick}
         aria-label="Loading music"
       >
-        {/* Concentric circles */}
+        {/* Background icons (SUBTLE Spotify green, no neon) */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <Disc3 className="absolute text-cyan-400/20" size={180} strokeWidth={1.5} />
-          <Radio className="absolute text-emerald-400/20" size={140} strokeWidth={1.5} />
-          <Music className="absolute text-cyan-400/20" size={100} strokeWidth={1.5} />
+          <Disc3
+            className="absolute text-[#1DB954]/10 animate-[breathe_3s_ease-in-out_infinite]"
+            size={180}
+            strokeWidth={1}
+          />
+          <Radio
+            className="absolute text-[#1DB954]/8 animate-[breathe_3s_ease-in-out_infinite_0.5s]"
+            size={140}
+            strokeWidth={1}
+          />
+          <Music
+            className="absolute text-[#1DB954]/6 animate-[breathe_3s_ease-in-out_infinite_1s]"
+            size={100}
+            strokeWidth={1}
+          />
         </div>
-        
-        {/* Spinning borders */}
-        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-cyan-400 animate-spin shadow-lg shadow-cyan-500/20" />
-        <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-emerald-400 animate-spin [animation-duration:1.5s] [animation-direction:reverse] shadow-lg shadow-emerald-500/20" />
-        <div className="absolute inset-8 rounded-full border-4 border-transparent border-t-cyan-400 animate-spin [animation-duration:1s] shadow-lg shadow-cyan-500/20" />
+
+        {/* Orbiting dots (Spotify green only) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="animate-[orbit_3s_linear_infinite]">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#1DB954] shadow-[0_0_6px_rgba(29,185,84,0.4)]" />
+          </div>
+        </div>
+
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="animate-[orbit-reverse_2.5s_linear_infinite]">
+            <div className="w-2 h-2 rounded-full bg-[#1DB954] shadow-[0_0_4px_rgba(29,185,84,0.3)]" />
+          </div>
+        </div>
+
+        {/* Rings (clean, no glow overload) */}
+        <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#1DB954]/35 animate-spin" />
+        <div className="absolute inset-4 rounded-full border-[3px] border-transparent border-t-[#1DB954]/25 animate-spin [animation-duration:1.5s] [animation-direction:reverse]" />
+        <div className="absolute inset-8 rounded-full border-[3px] border-transparent border-t-[#1DB954]/15 animate-spin [animation-duration:1s]" />
 
         {/* Center icon */}
-        <Music className="text-cyan-400 animate-pulse drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" size={48} />
+        <Music
+          className="text-[#1DB954] animate-[note-bounce_1.5s_ease-in-out_infinite] drop-shadow-[0_0_8px_rgba(29,185,84,0.4)]"
+          size={48}
+        />
 
-        {/* Loading text */}
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium tracking-wider animate-pulse whitespace-nowrap">
-          LOADING
+        {/* Label */}
+        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+          <span className="text-white/60 text-sm font-medium tracking-wide animate-pulse">
+            Loading
+          </span>
         </div>
-
-        {/* Ripples */}
-        {ripples.map((ripple) => (
-          <span
-            key={ripple.id}
-            className="pointer-events-none absolute rounded-full bg-cyan-400/30 animate-[ripple_0.6s_linear]"
-            style={{
-              left: ripple.x,
-              top: ripple.y,
-              width: "20px",
-              height: "20px",
-              transform: "translate(-50%, -50%) scale(0)",
-            }}
-          />
-        ))}
       </div>
     );
   }
 
-  // Wave variant
+  // ─── WAVE VARIANT (UNCHANGED) ─────────────────────────────────
   return (
     <div
       className={cn(musicLoaderVariants({ variant, size, className }))}
-      onClick={handleClick}
       aria-label="Loading music"
     >
-      {/* Floating music notes */}
-      <Music
-        className="absolute top-5 left-5 text-cyan-400/70 animate-[float_3s_ease-in-out_infinite] opacity-0 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]"
-        size={24}
-      />
-      <Radio
-        className="absolute top-10 right-8 text-emerald-400/70 animate-[float_3s_ease-in-out_infinite] [animation-delay:1s] opacity-0 drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]"
-        size={28}
-      />
-      <Disc3
-        className="absolute bottom-8 left-10 text-cyan-400/70 animate-[float_3s_ease-in-out_infinite] [animation-delay:2s] opacity-0 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]"
-        size={22}
-      />
-
-      {/* Wave bars */}
-      <div className="flex items-end gap-2 h-16">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="w-2 rounded-full bg-gradient-to-t from-cyan-400 to-emerald-400 shadow-[0_0_10px_rgba(34,211,238,0.5)] animate-wave"
-            style={{
-              height: [20, 35, 50, 40, 30, 45, 35, 25][i] + "px",
-              animationDelay: `${i * 0.1}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Loading text */}
-      <div className="text-white/80 text-lg font-medium tracking-wider animate-pulse">
+      <div className="text-white/80 text-base font-semibold tracking-[0.2em] animate-pulse">
         LOADING TRACK
       </div>
 
-      {/* Track info */}
       {showTrackInfo && (
-        <div className="text-center mt-2">
-          <div className="text-white font-semibold">{trackInfo.name}</div>
-          <div className="text-white/60 text-sm">{trackInfo.artist}</div>
+        <div
+          key={trackIndex}
+          className="text-center"
+          style={{ animation: "slide-up 0.5s ease-out" }}
+        >
+          <div className="text-white font-bold text-lg">{trackInfo.name}</div>
+          <div className="text-white/40 text-sm mt-0.5">
+            {trackInfo.artist}
+          </div>
         </div>
       )}
-
-      {/* Ripples */}
-      {ripples.map((ripple) => (
-        <span
-          key={ripple.id}
-          className="pointer-events-none absolute rounded-full bg-cyan-400/30 animate-[ripple_0.6s_linear]"
-          style={{
-            left: ripple.x,
-            top: ripple.y,
-            width: "20px",
-            height: "20px",
-            transform: "translate(-50%, -50%) scale(0)",
-          }}
-        />
-      ))}
     </div>
   );
 }

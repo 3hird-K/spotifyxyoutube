@@ -1,10 +1,13 @@
-import { supabase } from "../lib/supabase"; // Import your client
+import { supabase } from "../lib/supabase";
 import axios from "axios";
 import { Track } from "../data/tracks";
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
+/* -----------------------------
+   UTIL: ISO duration parser
+------------------------------ */
 const parseDuration = (isoDuration: string): number => {
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
@@ -16,77 +19,157 @@ const parseDuration = (isoDuration: string): number => {
   return hours * 3600 + minutes * 60 + seconds;
 };
 
-export const searchYouTubeMusic = async (query: string): Promise<Track[]> => {
+/* -----------------------------
+   CORE SEARCH FUNCTION
+   (+ optional recommendation mode)
+------------------------------ */
+export const searchYouTubeMusic = async (
+  query: string,
+  options?: { mode?: "search" | "recommend"; videoId?: string }
+): Promise<Track[]> => {
+
   const trimmedQuery = query.trim().toLowerCase();
-  if (!trimmedQuery) return [];
+  if (!trimmedQuery && !options?.videoId) return [];
+
+  const cacheKey =
+    options?.mode === "recommend"
+      ? `rec:${options.videoId}`
+      : trimmedQuery;
 
   try {
-    // 1. CHECK SUPABASE CACHE
-    const { data: cachedResponse } = await supabase
-      .from('youtube_search_cache')
-      .select('results, created_at')
-      .eq('query', trimmedQuery)
+    /* =========================
+       1. CACHE CHECK
+    ========================= */
+    const { data: cached } = await supabase
+      .from("youtube_search_cache")
+      .select("results, created_at")
+      .eq("query", cacheKey)
       .maybeSingle();
 
-    // If we have data and it's less than 7 days old, use it!
-    if (cachedResponse) {
-      const isFresh = new Date().getTime() - new Date(cachedResponse.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
+    if (cached) {
+      const isFresh =
+        new Date().getTime() -
+        new Date(cached.created_at).getTime() <
+        7 * 24 * 60 * 60 * 1000;
+
       if (isFresh) {
-        console.log("Serving from Supabase Cache");
-        return cachedResponse.results;
+        return cached.results;
       }
     }
 
-    // 2. IF NOT IN CACHE, CALL YOUTUBE (Quota cost: 101 units)
-    console.log("Fetching from YouTube API...");
-    const searchResponse = await axios.get(`${BASE_URL}/search`, {
-      params: {
-        part: "snippet",
-        maxResults: 15,
-        q: trimmedQuery,
-        type: "video",
-        videoCategoryId: "10",
-        key: API_KEY,
-        fields: "items(id/videoId)"
-      },
-    });
+    let results: Track[] = [];
 
-    const videoIds = searchResponse.data.items.map((item: any) => item.id.videoId).join(",");
-    if (!videoIds) return [];
+    /* =========================
+       2. RECOMMENDATION MODE
+    ========================= */
+    if (options?.mode === "recommend" && options.videoId) {
 
-    const videosResponse = await axios.get(`${BASE_URL}/videos`, {
-      params: {
-        part: "contentDetails,snippet",
-        id: videoIds,
-        key: API_KEY,
-        fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt),contentDetails(duration))"
-      },
-    });
+      const related = await axios.get(`${BASE_URL}/search`, {
+        params: {
+          part: "snippet",
+          relatedToVideoId: options.videoId,
+          type: "video",
+          maxResults: 15,
+          videoCategoryId: "10",
+          key: API_KEY,
+          fields: "items(id/videoId)"
+        },
+      });
 
-    // Parse the data as you did before
-    const results: Track[] = videosResponse.data.items.map((video: any) => ({
-      id: video.id,
-      title: video.snippet.title,
-      artist: video.snippet.channelTitle,
-      album: "YouTube Music",
-      duration: parseDuration(video.contentDetails?.duration || ""),
-      youtubeId: video.id,
-      thumbnail: video.snippet.thumbnails?.high?.url || "",
-      genre: "Pop",
-      year: new Date(video.snippet.publishedAt).getFullYear(),
-      youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
-    }));
+      const videoIds = related.data.items
+        .map((i: any) => i.id.videoId)
+        .join(",");
 
-    // 3. SAVE TO SUPABASE CACHE
-    // We use upsert so it updates the timestamp if the query already existed
+      if (!videoIds) return [];
+
+      const videos = await axios.get(`${BASE_URL}/videos`, {
+        params: {
+          part: "snippet,contentDetails",
+          id: videoIds,
+          key: API_KEY,
+          fields:
+            "items(id,snippet(title,channelTitle,thumbnails,publishedAt),contentDetails(duration))"
+        },
+      });
+
+      results = videos.data.items.map((video: any) => ({
+        id: video.id,
+        youtubeId: video.id,
+        title: video.snippet.title,
+        artist: video.snippet.channelTitle,
+        album: "YouTube Recommendations",
+        duration: parseDuration(video.contentDetails?.duration || ""),
+        thumbnail: video.snippet.thumbnails?.high?.url || "",
+        genre: "Mixed",
+        year: new Date(video.snippet.publishedAt).getFullYear(),
+        youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
+      }));
+    }
+
+    /* =========================
+       3. NORMAL SEARCH MODE
+    ========================= */
+    else {
+
+      const search = await axios.get(`${BASE_URL}/search`, {
+        params: {
+          part: "snippet",
+          maxResults: 15,
+          q: trimmedQuery,
+          type: "video",
+          videoCategoryId: "10",
+          key: API_KEY,
+          fields: "items(id/videoId)"
+        },
+      });
+
+      const videoIds = search.data.items
+        .map((i: any) => i.id.videoId)
+        .join(",");
+
+      if (!videoIds) return [];
+
+      const videos = await axios.get(`${BASE_URL}/videos`, {
+        params: {
+          part: "snippet,contentDetails",
+          id: videoIds,
+          key: API_KEY,
+          fields:
+            "items(id,snippet(title,channelTitle,thumbnails,publishedAt),contentDetails(duration))"
+        },
+      });
+
+      results = videos.data.items.map((video: any) => ({
+        id: video.id,
+        youtubeId: video.id,
+        title: video.snippet.title,
+        artist: video.snippet.channelTitle,
+        album: "YouTube Music",
+        duration: parseDuration(video.contentDetails?.duration || ""),
+        thumbnail: video.snippet.thumbnails?.high?.url || "",
+        genre: "Pop",
+        year: new Date(video.snippet.publishedAt).getFullYear(),
+        youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
+      }));
+    }
+
+    /* =========================
+       4. SAVE TO CACHE
+    ========================= */
     await supabase
-      .from('youtube_search_cache')
-      .upsert({ query: trimmedQuery, results: results, created_at: new Date() }, { onConflict: 'query' });
+      .from("youtube_search_cache")
+      .upsert(
+        {
+          query: cacheKey,
+          results,
+          created_at: new Date(),
+        },
+        { onConflict: "query" }
+      );
 
     return results;
-
   } catch (error) {
-    console.error("Error:", error);
+    console.error("YouTube API Error:", error);
     return [];
   }
 };

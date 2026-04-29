@@ -11,7 +11,7 @@ export const useSearchMusic = (query: string, enabled: boolean = true) => {
   useEffect(() => {
     debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(query);
-    }, 800);
+    }, 400); // Faster debounce (400ms instead of 800ms)
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -24,7 +24,7 @@ export const useSearchMusic = (query: string, enabled: boolean = true) => {
       if (!debouncedQuery.trim()) return [];
       return searchYouTubeMusic(debouncedQuery);
     },
-    enabled: enabled && debouncedQuery.trim().length >= 3, // Only query if at least 3 chars
+    enabled: enabled && debouncedQuery.trim().length > 2, // Start searching after 2 characters
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };

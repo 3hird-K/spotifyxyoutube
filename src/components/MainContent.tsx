@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import {
-  Search, Play, Clock, Heart, Loader2, Trash2, ListMusic,
+  Search, Play, Clock, Heart, Loader2, Trash2, ListMusic, Shuffle, Repeat, Repeat1, Pause,
 } from "lucide-react";
+import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { useSearchMusic } from "../hooks/useSearchMusic";
@@ -46,6 +47,10 @@ interface MainContentProps {
   user: any;
   onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (playlist: Playlist) => void;
+  isShuffle: boolean;
+  repeatMode: RepeatMode;
+  onToggleShuffle: () => void;
+  onToggleRepeat: () => void;
 }
 
 export default function MainContent(props: MainContentProps) {
@@ -55,6 +60,10 @@ export default function MainContent(props: MainContentProps) {
     playlists, onAddToPlaylist, onRemoveFromPlaylist, activePlaylist,
     onOpenSearch, searchResults, selectedTrackDetail, onTrackDetail,
     recentlyPlayed, user, onCreatePlaylist, onDeletePlaylist,
+    isShuffle,
+    repeatMode,
+    onToggleShuffle,
+    onToggleRepeat,
   } = props;
 
   const [selectedGenre, setSelectedGenre] = useState("All");
@@ -222,32 +231,85 @@ export default function MainContent(props: MainContentProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:ml-auto">
-              {isPlaylistView && activePlaylist && (
-                <Tooltip>
-                  <TooltipTrigger>
+              <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
+                {(isPlaylistView || activeView === "liked") && displayTracks.length > 0 && (
+                  <div className="flex items-center gap-1 sm:gap-2 mr-2">
+                    {/* Play Button */}
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeletePlaylist(activePlaylist)}
-                      className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full h-10 w-10"
+                      onClick={() => onSelect(displayTracks[0], displayTracks)}
+                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 border-none"
                     >
-                      <Trash2 size={20} />
+                      <Play size={20} fill="black" className="ml-0.5" />
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete Playlist</TooltipContent>
-                </Tooltip>
-              )}
 
-              <Button
-                variant="outline"
-                onClick={onOpenSearch}
-                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
-              >
-                <Search size={16} />
-                <span className="hidden sm:inline">Search tracks, artists…</span>
-                <span className="sm:hidden">Search</span>
-                <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs">
+                    {/* Shuffle Button */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleShuffle}
+                            className={`rounded-full transition-colors ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            <Shuffle size={20} />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
+                    </Tooltip>
+
+                    {/* Repeat Button */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleRepeat}
+                            className={`rounded-full transition-colors relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            {repeatMode === "one" ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                            {repeatMode !== "none" && (
+                              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
+                            )}
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>
+                        {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                {isPlaylistView && activePlaylist && (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDeletePlaylist(activePlaylist)}
+                          className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full h-10 w-10"
+                        >
+                          <Trash2 size={20} />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>Delete Playlist</TooltipContent>
+                  </Tooltip>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={onOpenSearch}
+                  className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
+                >
+                  <Search size={16} />
+                  <span className="hidden sm:inline">Search tracks, artists…</span>
+                  <span className="sm:hidden">Search</span>
+                  <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs">
                   ⌘K
                 </kbd>
               </Button>
@@ -274,19 +336,21 @@ export default function MainContent(props: MainContentProps) {
           )}
         </div>
       </div>
-      
+
 
 
       {/* Track list */}
       <div className="px-4 sm:px-8 py-4">
         {isTrendingLoading ? (
           <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
-            <Loader2 className="animate-spin mb-4" size={32} />
+            {/* <Loader2 className="animate-spin mb-4" size={32} /> */}
             {/* <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p> */}
-            
+            <MusicLoader />
+
           </div>
         ) : displayTracks.length === 0 ? (
           <div className="text-center text-zinc-600 py-20">
+            <MusicLoader />
             <p className="text-base sm:text-lg font-semibold text-zinc-500">No tracks found</p>
           </div>
         ) : (

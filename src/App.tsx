@@ -174,11 +174,16 @@ export default function App() {
   const handleSelectFromSearch = useCallback(async (track: Track) => {
     handleSelectTrack(track);
 
-    const query = `${track.artist} ${track.title} music`;
-    const related = await searchYouTubeMusic(query);
+    const related = await searchYouTubeMusic("", {
+      mode: "recommend",
+      videoId: track.youtubeId
+    });
 
     if (related.length > 0) {
-      const relatedFiltered = related.filter(t => t.id !== track.id);
+      const relatedFiltered = related.filter(t => 
+        t.id !== track.id && 
+        !t.title.toLowerCase().includes(track.title.toLowerCase())
+      );
       setSearchResults([track, ...relatedFiltered]);
       player.setQueue([track, ...relatedFiltered]);
     } else {
@@ -191,16 +196,31 @@ export default function App() {
 
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
-      const query = lastTrack
-        ? `${lastTrack.artist} ${lastTrack.title} music`
-        : "top trending music";
+      let related: Track[] = [];
 
-      const related = await searchYouTubeMusic(query);
+      if (lastTrack?.youtubeId) {
+        related = await searchYouTubeMusic("", {
+          mode: "recommend",
+          videoId: lastTrack.youtubeId
+        });
+      }
+
+      if (related.length === 0) {
+        const query = lastTrack
+          ? `${lastTrack.artist} top tracks`
+          : "top trending music";
+        related = await searchYouTubeMusic(query);
+      }
+
       if (related.length === 0) return;
 
       player.setQueue((prev) => {
         const existingIds = new Set(prev.map((t) => t.id));
-        const fresh = related.filter((t) => !existingIds.has(t.id));
+        const currentTitle = lastTrack?.title.toLowerCase();
+        const fresh = related.filter((t) => 
+          !existingIds.has(t.id) && 
+          (!currentTitle || !t.title.toLowerCase().includes(currentTitle))
+        );
         if (fresh.length === 0) return prev;
 
         const nextIdx = prev.length;
@@ -272,6 +292,10 @@ export default function App() {
               user={user}
               onCreatePlaylist={handleCreatePlaylist}
               onDeletePlaylist={requestDeletePlaylist}
+              isShuffle={player.isShuffle}
+              repeatMode={player.repeatMode}
+              onToggleShuffle={player.toggleShuffle}
+              onToggleRepeat={player.toggleRepeat}
             />
 
             <aside
@@ -285,14 +309,16 @@ export default function App() {
                     Now Playing
                   </span>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <button
-                        onClick={() => setShowNowPlaying(false)}
-                        className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50 p-2 rounded-full"
-                      >
-                        <PanelRightClose size={16} />
-                      </button>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          onClick={() => setShowNowPlaying(false)}
+                          className="text-zinc-600 hover:text-white transition-colors hover:bg-zinc-800/50 p-2 rounded-full"
+                        >
+                          <PanelRightClose size={16} />
+                        </button>
+                      }
+                    />
                     <TooltipContent side="left">Hide panel</TooltipContent>
                   </Tooltip>
                 </div>
@@ -386,14 +412,16 @@ export default function App() {
 
             {!showNowPlaying && (
               <Tooltip>
-                <TooltipTrigger>
-                  <button
-                    onClick={() => setShowNowPlaying(true)}
-                    className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg p-3 items-center justify-center"
-                  >
-                    <PanelRightOpen size={16} />
-                  </button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <button
+                      onClick={() => setShowNowPlaying(true)}
+                      className="fixed right-4 bottom-24 z-20 hidden lg:flex rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 shadow-lg p-3 items-center justify-center"
+                    >
+                      <PanelRightOpen size={16} />
+                    </button>
+                  }
+                />
                 <TooltipContent side="left">Show Now Playing</TooltipContent>
               </Tooltip>
             )}
