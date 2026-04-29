@@ -18,7 +18,7 @@ import { MusicLoader } from "./MusicLoader";
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectTrack: (track: Track) => void;
+  onSelectTrack: (track: Track, query?: string) => void;
   liked: Set<string>;
   onToggleLike: (track: Track) => void;
 }
@@ -79,7 +79,7 @@ export default function SearchModal({
             </div>
           ) : isLoading ? (
             <div className="flex items-center justify-center py-20 relative min-h-[200px]">
-              <MusicLoader variant="circular" size="sm" cycleTracks />
+              <MusicLoader />
             </div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -94,7 +94,7 @@ export default function SearchModal({
                   <button
                     key={track.id}
                     onClick={() => {
-                      onSelectTrack(track);
+                      onSelectTrack(track, query);
                       onClose();
                       setQuery("");
                     }}

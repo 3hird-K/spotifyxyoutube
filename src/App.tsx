@@ -38,6 +38,7 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // -- Global Delete Confirm State --
@@ -94,9 +95,68 @@ export default function App() {
     }
   });
 
+  // Sync playlists from Supabase if logged in
   useEffect(() => {
-    localStorage.setItem("spotube_playlists", JSON.stringify(playlists));
-  }, [playlists]);
+    if (!user || user.is_anonymous) return;
+
+    const fetchPlaylists = async () => {
+      const { data: dbPlaylists, error } = await supabase
+        .from("playlists")
+        .select(`
+          *,
+          playlist_tracks (
+            track_data
+          )
+        `)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching playlists:", error);
+        return;
+      }
+
+      const formatted: Playlist[] = dbPlaylists.map((pl: any) => ({
+        id: pl.id,
+        name: pl.name,
+        tracks: pl.playlist_tracks.map((t: any) => t.track_data),
+        createdAt: new Date(pl.created_at).getTime(),
+      }));
+
+      setPlaylists(formatted);
+    };
+
+    fetchPlaylists();
+  }, [user]);
+
+  // Persist to localStorage for Guest users
+  useEffect(() => {
+    if (!user || user.is_anonymous) {
+      localStorage.setItem("spotube_playlists", JSON.stringify(playlists));
+    }
+  }, [playlists, user]);
+
+  // Sync recent searches from Supabase if logged in
+  useEffect(() => {
+    if (!user || user.is_anonymous) return;
+
+    const fetchRecentSearches = async () => {
+      const { data, error } = await supabase
+        .from("recent_searches")
+        .select("query")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Error fetching recent searches:", error);
+        return;
+      }
+
+      setRecentSearches(data.map(d => d.query));
+    };
+
+    fetchRecentSearches();
+  }, [user]);
 
   // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
   useEffect(() => {
@@ -110,29 +170,70 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleCreatePlaylist = useCallback((name: string) => {
-    const pl: Playlist = {
-      id: `pl_${Date.now()}`,
+  const handleCreatePlaylist = useCallback(async (name: string) => {
+    const tempId = `pl_${Date.now()}`;
+    const newPl: Playlist = {
+      id: tempId,
       name,
       tracks: [],
       createdAt: Date.now(),
     };
-    setPlaylists((prev) => [...prev, pl]);
-  }, []);
 
-  const handleDeletePlaylist = useCallback((id: string) => {
+    // Optimistic update
+    setPlaylists((prev) => [...prev, newPl]);
+
+    // Supabase update if logged in
+    if (user && !user.is_anonymous) {
+      const { data, error } = await supabase
+        .from("playlists")
+        .insert({
+          name,
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating playlist in DB:", error);
+        // Revert on error
+        setPlaylists((prev) => prev.filter(p => p.id !== tempId));
+      } else if (data) {
+        // Update with real ID
+        setPlaylists((prev) => prev.map(p => p.id === tempId ? { ...p, id: data.id } : p));
+      }
+    }
+  }, [user]);
+
+  const handleDeletePlaylist = useCallback(async (id: string) => {
+    // Optimistic update
     setPlaylists((prev) => prev.filter((pl) => pl.id !== id));
     if (activeView === `playlist:${id}`) {
       setActiveView("home");
     }
-  }, [activeView]);
+
+    // Supabase update
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("playlists")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error deleting playlist:", error);
+        // Refresh from DB on error
+        const { data } = await supabase.from("playlists").select("*");
+        if (data) setPlaylists(data as any);
+      }
+    }
+  }, [activeView, user]);
 
   const requestDeletePlaylist = useCallback((playlist: Playlist) => {
     setPlaylistToDelete(playlist);
     setShowDeleteConfirm(true);
   }, []);
 
-  const handleAddToPlaylist = useCallback((playlistId: string, track: Track) => {
+  const handleAddToPlaylist = useCallback(async (playlistId: string, track: Track) => {
+    // Optimistic update
     setPlaylists((prev) =>
       prev.map((pl) =>
         pl.id === playlistId
@@ -145,9 +246,25 @@ export default function App() {
           : pl
       )
     );
-  }, []);
 
-  const handleRemoveFromPlaylist = useCallback((playlistId: string, trackId: string) => {
+    // Supabase update
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("playlist_tracks")
+        .insert({
+          playlist_id: playlistId,
+          track_id: track.id,
+          track_data: track as any,
+        });
+
+      if (error && error.code !== '23505') { // Ignore unique constraint violation
+        console.error("Error adding track to playlist:", error);
+      }
+    }
+  }, [user]);
+
+  const handleRemoveFromPlaylist = useCallback(async (playlistId: string, trackId: string) => {
+    // Optimistic update
     setPlaylists((prev) =>
       prev.map((pl) =>
         pl.id === playlistId
@@ -155,10 +272,23 @@ export default function App() {
           : pl
       )
     );
-  }, []);
+
+    // Supabase update
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("playlist_tracks")
+        .delete()
+        .eq("playlist_id", playlistId)
+        .eq("track_id", trackId);
+
+      if (error) {
+        console.error("Error removing track from playlist:", error);
+      }
+    }
+  }, [user]);
 
   // ── Player ────────────────────────────────────────────────────────────────
-  const player = usePlayer([]);
+  const player = usePlayer([], user);
 
   const handleTrackDetail = useCallback((track: Track) => {
     setSelectedTrackDetail(track);
@@ -174,8 +304,24 @@ export default function App() {
     });
   }, [player]);
 
-  const handleSelectFromSearch = useCallback(async (track: Track) => {
+  const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
     handleSelectTrack(track);
+
+    // Save search query if provided
+    if (query && query.trim()) {
+      const trimmed = query.trim();
+      setRecentSearches(prev => {
+        const filtered = prev.filter(q => q !== trimmed);
+        return [trimmed, ...filtered].slice(0, 10);
+      });
+
+      if (user && !user.is_anonymous) {
+        await supabase.from("recent_searches").insert({
+          user_id: user.id,
+          query: trimmed
+        });
+      }
+    }
 
     const related = await searchYouTubeMusic("", {
       mode: "recommend",
@@ -196,7 +342,7 @@ export default function App() {
 
     // Go directly to track detail view to show recommendations
     handleTrackDetail(track);
-  }, [player, handleTrackDetail]);
+  }, [player, handleTrackDetail, user]);
 
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Track } from "../data/tracks";
 import type { YouTubeEvent, YouTubePlayer } from "react-youtube";
+import { supabase } from "../lib/supabase";
 
 export type RepeatMode = "none" | "one" | "all";
 
-export function usePlayer(initialTracks: Track[]) {
+export function usePlayer(initialTracks: Track[], user: any = null) {
   const [queue, setQueue] = useState<Track[]>(initialTracks);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -31,13 +32,38 @@ export function usePlayer(initialTracks: Track[]) {
     }
   });
 
+  // Sync liked tracks from Supabase if logged in
+  useEffect(() => {
+    if (!user || user.is_anonymous) return;
+
+    const fetchLikedSongs = async () => {
+      const { data, error } = await supabase
+        .from("liked_songs")
+        .select("track_data")
+        .eq("user_id", user.id)
+        .order("liked_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching liked songs:", error);
+        return;
+      }
+
+      const tracks = data.map((d: any) => d.track_data as Track);
+      setLikedTracks(tracks);
+    };
+
+    fetchLikedSongs();
+  }, [user]);
+
   // Derived Set for O(1) lookups
   const liked = useMemo(() => new Set(likedTracks.map(t => t.id)), [likedTracks]);
 
-  // Persist liked tracks
+  // Persist to localStorage for Guest users
   useEffect(() => {
-    localStorage.setItem("spotube_liked_tracks", JSON.stringify(likedTracks));
-  }, [likedTracks]);
+    if (!user || user.is_anonymous) {
+      localStorage.setItem("spotube_liked_tracks", JSON.stringify(likedTracks));
+    }
+  }, [likedTracks, user]);
 
   const playerRef = useRef<YouTubePlayer | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -267,13 +293,38 @@ export function usePlayer(initialTracks: Track[]) {
     []
   );
 
-  const toggleLike = useCallback((track: Track) => {
+  const toggleLike = useCallback(async (track: Track) => {
+    const isLiked = liked.has(track.id);
+
+    // Optimistic update
     setLikedTracks((prev) => {
-      const exists = prev.find(t => t.id === track.id);
-      if (exists) return prev.filter(t => t.id !== track.id);
-      return [...prev, track];
+      if (isLiked) return prev.filter(t => t.id !== track.id);
+      return [track, ...prev];
     });
-  }, []);
+
+    // Supabase update if logged in
+    if (user && !user.is_anonymous) {
+      if (isLiked) {
+        const { error } = await supabase
+          .from("liked_songs")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("track_id", track.id);
+        
+        if (error) console.error("Error unliking track:", error);
+      } else {
+        const { error } = await supabase
+          .from("liked_songs")
+          .insert({
+            user_id: user.id,
+            track_id: track.id,
+            track_data: track as any,
+          });
+
+        if (error) console.error("Error liking track:", error);
+      }
+    }
+  }, [liked, user]);
 
   const addToQueue = useCallback((track: Track) => {
     setQueue((prev) => {
