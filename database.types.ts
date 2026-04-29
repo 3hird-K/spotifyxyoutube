@@ -160,6 +160,38 @@ export type Database = {
           },
         ]
       }
+      recently_played: {
+        Row: {
+          id: string
+          played_at: string | null
+          track_data: Json
+          track_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          played_at?: string | null
+          track_data: Json
+          track_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          played_at?: string | null
+          track_data?: Json
+          track_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recently_played_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       youtube_search_cache: {
         Row: {
           created_at: string | null

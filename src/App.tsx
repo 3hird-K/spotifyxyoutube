@@ -36,7 +36,6 @@ export default function App() {
   const [selectedTrackDetail, setSelectedTrackDetail] = useState<Track | null>(null);
   const [showNowPlaying, setShowNowPlaying] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -95,6 +94,16 @@ export default function App() {
     }
   });
 
+  // ── Recently Played state ────────────────────────────────────────────────
+  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>(() => {
+    try {
+      const stored = localStorage.getItem("spotube_recently_played");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Sync playlists from Supabase if logged in
   useEffect(() => {
     if (!user || user.is_anonymous) return;
@@ -110,7 +119,7 @@ export default function App() {
         `)
         .order("created_at", { ascending: true });
 
-      if (error) {
+      if (error || !dbPlaylists) {
         console.error("Error fetching playlists:", error);
         return;
       }
@@ -118,8 +127,8 @@ export default function App() {
       const formatted: Playlist[] = dbPlaylists.map((pl: any) => ({
         id: pl.id,
         name: pl.name,
-        tracks: pl.playlist_tracks.map((t: any) => t.track_data),
-        createdAt: new Date(pl.created_at).getTime(),
+        tracks: (pl.playlist_tracks || []).map((t: any) => t.track_data as unknown as Track),
+        createdAt: pl.created_at ? new Date(pl.created_at).getTime() : Date.now(),
       }));
 
       setPlaylists(formatted);
@@ -132,8 +141,9 @@ export default function App() {
   useEffect(() => {
     if (!user || user.is_anonymous) {
       localStorage.setItem("spotube_playlists", JSON.stringify(playlists));
+      localStorage.setItem("spotube_recently_played", JSON.stringify(recentlyPlayed));
     }
-  }, [playlists, user]);
+  }, [playlists, recentlyPlayed, user]);
 
   // Sync recent searches from Supabase if logged in
   useEffect(() => {
@@ -156,6 +166,30 @@ export default function App() {
     };
 
     fetchRecentSearches();
+  }, [user]);
+
+  // Sync recently played from Supabase if logged in
+  useEffect(() => {
+    if (!user || user.is_anonymous) return;
+
+    const fetchRecentlyPlayed = async () => {
+      const { data, error } = await supabase
+        .from("recently_played")
+        .select("track_data")
+        .eq("user_id", user.id)
+        .order("played_at", { ascending: false })
+        .limit(20);
+
+      if (error || !data) {
+        console.error("Error fetching recently played:", error);
+        return;
+      }
+
+      const tracks = data.map((d: any) => d.track_data as unknown as Track);
+      setRecentlyPlayed(tracks);
+    };
+
+    fetchRecentlyPlayed();
   }, [user]);
 
   // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
@@ -296,13 +330,29 @@ export default function App() {
     setShowNowPlaying(true);
   }, []);
 
-  const handleSelectTrack = useCallback((track: Track, contextQueue?: Track[]) => {
+  const handleSelectTrack = useCallback(async (track: Track, contextQueue?: Track[]) => {
     player.playArbitraryTrack(track, contextQueue);
+
+    // Update local state
     setRecentlyPlayed((prev) => {
       const filtered = prev.filter((t) => t.id !== track.id);
       return [track, ...filtered].slice(0, 20);
     });
-  }, [player]);
+
+    // Supabase update if logged in
+    if (user && !user.is_anonymous) {
+      const { error } = await supabase
+        .from("recently_played")
+        .upsert({
+          user_id: user.id,
+          track_id: track.id,
+          track_data: track as any,
+          played_at: new Date().toISOString()
+        }, { onConflict: 'user_id,track_id' });
+
+      if (error) console.error("Error saving to recently played:", error);
+    }
+  }, [player, user]);
 
   const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
     handleSelectTrack(track);
@@ -329,8 +379,8 @@ export default function App() {
     });
 
     if (related.length > 0) {
-      const relatedFiltered = related.filter(t => 
-        t.id !== track.id && 
+      const relatedFiltered = related.filter(t =>
+        t.id !== track.id &&
         !t.title.toLowerCase().includes(track.title.toLowerCase())
       );
       setSearchResults([track, ...relatedFiltered]);
@@ -367,8 +417,8 @@ export default function App() {
       player.setQueue((prev) => {
         const existingIds = new Set(prev.map((t) => t.id));
         const currentTitle = lastTrack?.title.toLowerCase();
-        const fresh = related.filter((t) => 
-          !existingIds.has(t.id) && 
+        const fresh = related.filter((t) =>
+          !existingIds.has(t.id) &&
           (!currentTitle || !t.title.toLowerCase().includes(currentTitle))
         );
         if (fresh.length === 0) return prev;
@@ -403,9 +453,9 @@ export default function App() {
             {/* Sidebar */}
             <Sidebar
               onSelect={(idx) => {
-                 const t = player.queue[idx];
-                 if (t) handleSelectTrack(t);
-                 else player.selectTrack(idx);
+                const t = player.queue[idx];
+                if (t) handleSelectTrack(t);
+                else player.selectTrack(idx);
               }}
               liked={player.liked}
               activeView={activeView}
@@ -626,9 +676,9 @@ export default function App() {
             <div className="flex items-center justify-around h-16 px-4">
               {[
                 { icon: Home, label: "Home", view: "home" },
-                { 
-                  icon: Plus, 
-                  label: "Playlist", 
+                {
+                  icon: Plus,
+                  label: "Playlist",
                   onClick: () => setShowCreateModal(true),
                   view: "none" // Don't switch view
                 },
