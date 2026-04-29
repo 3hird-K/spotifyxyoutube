@@ -109,12 +109,13 @@ export function usePlayer(initialTracks: Track[]) {
   useEffect(() => {
     if (isPlaying && currentIndex >= 0) {
       startTimer();
+      playerRef.current?.playVideo();
     } else {
       clearTimer();
       playerRef.current?.pauseVideo();
     }
     return clearTimer;
-  }, [isPlaying, currentIndex]); // eslint-disable-line
+  }, [isPlaying, currentIndex, currentTrack?.youtubeId]); // Added youtubeId to ensure play triggers on track change
 
   useEffect(() => {
     if (playerRef.current) {

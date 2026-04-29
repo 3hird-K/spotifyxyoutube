@@ -7,7 +7,9 @@ import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
 import SearchModal from "./components/SearchModal";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
-import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut } from "lucide-react";
+import { MobilePlayer } from "./components/MobilePlayer";
+import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
+import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
@@ -36,6 +38,7 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // -- Global Delete Confirm State --
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
@@ -191,8 +194,9 @@ export default function App() {
       player.setQueue([track]);
     }
 
-    setActiveView("search-results");
-  }, [player]);
+    // Go directly to track detail view to show recommendations
+    handleTrackDetail(track);
+  }, [player, handleTrackDetail]);
 
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
@@ -296,6 +300,8 @@ export default function App() {
               repeatMode={player.repeatMode}
               onToggleShuffle={player.toggleShuffle}
               onToggleRepeat={player.toggleRepeat}
+              showCreateModal={showCreateModal}
+              setShowCreateModal={setShowCreateModal}
             />
 
             <aside
@@ -456,23 +462,47 @@ export default function App() {
             />
           </div>
 
+          {/* Mobile Player bar */}
+          <MobilePlayer
+            track={player.currentTrack}
+            isPlaying={player.isPlaying}
+            isLiked={player.currentTrack ? player.liked.has(player.currentTrack.id) : false}
+            progress={player.progress}
+            onTogglePlay={player.togglePlay}
+            onToggleLike={player.toggleLike}
+            onTrackDetail={handleTrackDetail}
+            onNext={() => player.handleNext()}
+            onPrev={player.handlePrev}
+          />
+
           {/* Mobile Nav */}
           <nav className="md:hidden bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)]">
             <div className="flex items-center justify-around h-16 px-4">
               {[
                 { icon: Home, label: "Home", view: "home" },
-                { icon: Search, label: "Search", view: "search" },
+                { 
+                  icon: Plus, 
+                  label: "Playlist", 
+                  onClick: () => setShowCreateModal(true),
+                  view: "none" // Don't switch view
+                },
                 { icon: Library, label: "Library", view: "library" },
-              ].map(({ icon: Icon, label, view }) => (
+              ].map((item) => (
                 <Button
-                  key={view}
+                  key={item.label}
                   variant="ghost"
-                  onClick={() => setActiveView(view)}
-                  className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeView === view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                  onClick={() => {
+                    if (item.onClick) {
+                      item.onClick();
+                    } else {
+                      setActiveView(item.view);
+                    }
+                  }}
+                  className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeView === item.view ? "text-white" : "text-zinc-500 hover:text-zinc-300"
                     }`}
                 >
-                  <Icon size={24} />
-                  <span className="text-[10px] font-medium">{label}</span>
+                  <item.icon size={24} />
+                  <span className="text-[10px] font-medium">{item.label}</span>
                 </Button>
               ))}
             </div>
@@ -486,6 +516,13 @@ export default function App() {
           onSelectTrack={handleSelectFromSearch}
           liked={player.liked}
           onToggleLike={player.toggleLike}
+        />
+
+        {/* Global Create Playlist Modal */}
+        <CreatePlaylistModal
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
+          onCreate={handleCreatePlaylist}
         />
 
         {/* Global Delete Playlist Confirmation Modal */}

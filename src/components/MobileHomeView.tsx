@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
     Play, Pause, Heart, Trash2, ListMusic, LogOut, Menu, Plus,
+    Search,
 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
@@ -42,6 +43,7 @@ interface MobileHomeViewProps {
     onOpenCreatePlaylist: () => void;
     onDeletePlaylist: (playlist: Playlist) => void;
     isPlaylistView: boolean;
+    onOpenSearch: () => void;
 }
 
 export function MobileHomeView({
@@ -62,6 +64,7 @@ export function MobileHomeView({
     onOpenCreatePlaylist,
     onDeletePlaylist,
     isPlaylistView,
+    onOpenSearch,
 }: MobileHomeViewProps) {
     const [activeTab, setActiveTab] = useState("All");
     const { isGuest, displayName, avatarUrl, avatarInitial } = profile;
@@ -101,7 +104,14 @@ export function MobileHomeView({
                         </div>
                     </div>
 
-                    <div className="flex gap-2 ml-3">
+                    <div className="flex items-center gap-4 ml-3">
+                        <button
+                            onClick={onOpenSearch}
+                            className="text-zinc-400 hover:text-white"
+                        >
+                            <Search size={24} />
+                        </button>
+
                         <DropdownMenu>
                             <DropdownMenuTrigger
                                 render={
@@ -157,8 +167,8 @@ export function MobileHomeView({
                             key={tab}
                             onClick={() => handleTabChange(tab)}
                             className={`shrink-0 px-4 py-1.5 rounded-full font-medium text-sm transition-colors ${activeTab === tab
-                                    ? "bg-[#1DB954] text-black"
-                                    : "bg-zinc-800/80 text-zinc-300 hover:text-white"
+                                ? "bg-[#1DB954] text-black"
+                                : "bg-zinc-800/80 text-zinc-300 hover:text-white"
                                 }`}
                         >
                             {tab}
@@ -222,17 +232,7 @@ export function MobileHomeView({
                 </Section>
             </div>
 
-            {/* Floating now playing bar */}
-            {currentTrack && (
-                <FloatingNowPlaying
-                    track={currentTrack}
-                    isPlaying={isPlaying}
-                    isLiked={liked.has(currentTrack.id)}
-                    onTogglePlay={onTogglePlay}
-                    onToggleLike={onToggleLike}
-                    onTrackDetail={onTrackDetail}
-                />
-            )}
+            {/* Removed FloatingNowPlaying bar from here as it is now global in App.tsx */}
         </main>
     );
 }
@@ -305,58 +305,6 @@ function MobileTrackCard({
             <div className="px-0.5">
                 <p className="text-[11px] font-bold text-white truncate">{track.title}</p>
                 <p className="text-[10px] text-zinc-500 truncate">{track.artist}</p>
-            </div>
-        </div>
-    );
-}
-
-function FloatingNowPlaying({
-    track,
-    isPlaying,
-    isLiked,
-    onTogglePlay,
-    onToggleLike,
-    onTrackDetail,
-}: {
-    track: Track;
-    isPlaying: boolean;
-    isLiked: boolean;
-    onTogglePlay: () => void;
-    onToggleLike: (t: Track) => void;
-    onTrackDetail: (t: Track) => void;
-}) {
-    return (
-        <div className="fixed bottom-[65px] left-2 right-2 z-30 md:hidden">
-            <div
-                onClick={() => onTrackDetail(track)}
-                className="bg-zinc-900/95 backdrop-blur-md rounded-md p-1.5 flex items-center gap-3 shadow-2xl border border-zinc-800"
-            >
-                <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="w-10 h-10 rounded object-cover flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                    <p className="text-white text-[11px] font-bold truncate">{track.title}</p>
-                    <p className="text-zinc-400 text-[10px] truncate">{track.artist}</p>
-                </div>
-                <div className="flex items-center gap-1 pr-1">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onToggleLike(track); }}
-                        className={`${isLiked ? "text-[#1DB954]" : "text-zinc-400"} p-2`}
-                    >
-                        <Heart size={20} className={isLiked ? "fill-[#1DB954]" : ""} />
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-                        className="w-8 h-8 flex items-center justify-center text-white"
-                    >
-                        {isPlaying ? <Pause size={20} fill="white" /> : <Play size={20} fill="white" />}
-                    </button>
-                </div>
-            </div>
-            <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-white transition-all duration-1000" style={{ width: "35%" }} />
             </div>
         </div>
     );

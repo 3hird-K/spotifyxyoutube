@@ -54,12 +54,14 @@ export default function Sidebar({
       <aside className="hidden md:flex flex-col w-64 h-screen bg-black text-white shrink-0 border-r border-zinc-900">
         {/* Logo */}
         <div className="px-6 pt-7 pb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center overflow-hidden">
-              <img className="w-full h-full object-contain opacity-80" src={Logo} alt="Logo" />
+          <a href="https://spotifyxyoutube.vercel.app/">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-[#0c7430f1] flex items-center justify-center overflow-hidden">
+                <img className="w-full h-full object-contain opacity-80" src={Logo} alt="Logo" />
+              </div>
+              <span className="text-xl font-bold tracking-tight">Spotify Premium</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">Spatify Premyum</span>
-          </div>
+          </a>
         </div>
 
         {/* Nav */}
