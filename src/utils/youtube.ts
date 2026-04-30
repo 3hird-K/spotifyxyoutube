@@ -9,6 +9,7 @@ const BASE_URL = "https://www.googleapis.com/youtube/v3";
    UTIL: ISO duration parser
 ------------------------------ */
 const parseDuration = (isoDuration: string): number => {
+  if (!isoDuration) return 0;
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
 
@@ -20,6 +21,23 @@ const parseDuration = (isoDuration: string): number => {
 };
 
 /* -----------------------------
+   UTIL: Map YouTube API to Track
+------------------------------ */
+const mapToTrack = (video: any, albumName: string): Track => ({
+  id: video.id,
+  youtubeId: video.id,
+  title: video.snippet.title,
+  artist: video.snippet.channelTitle,
+  album: albumName,
+  duration: parseDuration(video.contentDetails?.duration || ""),
+  thumbnail: video.snippet.thumbnails?.high?.url || video.snippet.thumbnails?.default?.url || "",
+  genre: albumName === "YouTube Recommendations" ? "Mixed" : "Pop",
+  year: video.snippet.publishedAt ? new Date(video.snippet.publishedAt).getFullYear() : new Date().getFullYear(),
+  youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
+  description: video.snippet.description || "",
+});
+
+/* -----------------------------
    CORE SEARCH FUNCTION
    (+ optional recommendation mode)
 ------------------------------ */
@@ -27,6 +45,11 @@ export const searchYouTubeMusic = async (
   query: string,
   options?: { mode?: "search" | "recommend"; videoId?: string }
 ): Promise<Track[]> => {
+
+  if (!API_KEY) {
+    console.error("YouTube API Key is missing. Check your .env file.");
+    return [];
+  }
 
   const trimmedQuery = query.trim().toLowerCase();
   if (!trimmedQuery && !options?.videoId) return [];
@@ -40,20 +63,22 @@ export const searchYouTubeMusic = async (
     /* =========================
        1. CACHE CHECK
     ========================= */
-    const { data: cached } = await supabase
+    const { data: cached, error: cacheError } = await supabase
       .from("youtube_search_cache")
       .select("results, created_at")
       .eq("query", cacheKey)
       .maybeSingle();
 
-    if (cached) {
+    if (cacheError) console.error("Cache fetch error:", cacheError);
+
+    if (cached && cached.created_at) {
       const isFresh =
         new Date().getTime() -
         new Date(cached.created_at).getTime() <
         7 * 24 * 60 * 60 * 1000;
 
-      if (isFresh) {
-        return cached.results;
+      if (isFresh && cached.results) {
+        return (cached.results as unknown) as Track[];
       }
     }
 
@@ -63,7 +88,6 @@ export const searchYouTubeMusic = async (
        2. RECOMMENDATION MODE
     ========================= */
     if (options?.mode === "recommend" && options.videoId) {
-
       const related = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
@@ -78,6 +102,7 @@ export const searchYouTubeMusic = async (
 
       const videoIds = related.data.items
         .map((i: any) => i.id.videoId)
+        .filter(Boolean)
         .join(",");
 
       if (!videoIds) return [];
@@ -87,31 +112,17 @@ export const searchYouTubeMusic = async (
           part: "snippet,contentDetails",
           id: videoIds,
           key: API_KEY,
-          fields:
-            "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+          fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
         },
       });
 
-      results = videos.data.items.map((video: any) => ({
-        id: video.id,
-        youtubeId: video.id,
-        title: video.snippet.title,
-        artist: video.snippet.channelTitle,
-        album: "YouTube Recommendations",
-        duration: parseDuration(video.contentDetails?.duration || ""),
-        thumbnail: video.snippet.thumbnails?.high?.url || "",
-        genre: "Mixed",
-        year: new Date(video.snippet.publishedAt).getFullYear(),
-        youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
-        description: video.snippet.description,
-      }));
+      results = videos.data.items.map((video: any) => mapToTrack(video, "YouTube Recommendations"));
     }
 
     /* =========================
        3. NORMAL SEARCH MODE
     ========================= */
     else {
-
       const search = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
@@ -126,6 +137,7 @@ export const searchYouTubeMusic = async (
 
       const videoIds = search.data.items
         .map((i: any) => i.id.videoId)
+        .filter(Boolean)
         .join(",");
 
       if (!videoIds) return [];
@@ -135,39 +147,30 @@ export const searchYouTubeMusic = async (
           part: "snippet,contentDetails",
           id: videoIds,
           key: API_KEY,
-          fields:
-            "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+          fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
         },
       });
 
-      results = videos.data.items.map((video: any) => ({
-        id: video.id,
-        youtubeId: video.id,
-        title: video.snippet.title,
-        artist: video.snippet.channelTitle,
-        album: "YouTube Music",
-        duration: parseDuration(video.contentDetails?.duration || ""),
-        thumbnail: video.snippet.thumbnails?.high?.url || "",
-        genre: "Pop",
-        year: new Date(video.snippet.publishedAt).getFullYear(),
-        youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
-        description: video.snippet.description,
-      }));
+      results = videos.data.items.map((video: any) => mapToTrack(video, "YouTube Music"));
     }
 
     /* =========================
        4. SAVE TO CACHE
     ========================= */
-    await supabase
-      .from("youtube_search_cache")
-      .upsert(
-        {
-          query: cacheKey,
-          results,
-          created_at: new Date(),
-        },
-        { onConflict: "query" }
-      );
+    if (results.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("youtube_search_cache")
+        .upsert(
+          {
+            query: cacheKey,
+            results: results as any,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "query" }
+        );
+      
+      if (upsertError) console.error("Cache save error:", upsertError);
+    }
 
     return results;
   } catch (error) {

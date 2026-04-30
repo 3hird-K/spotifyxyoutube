@@ -131,7 +131,6 @@ export default function App() {
     }
   });
 
-  // ── Recently Played state ────────────────────────────────────────────────
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>(() => {
     try {
       const stored = localStorage.getItem("spotube_recently_played");
@@ -140,6 +139,37 @@ export default function App() {
       return [];
     }
   });
+
+  // ── Recently Played Sync ────────────────────────────────────────────────
+  // Automatically update recently played whenever the current track changes.
+  // This covers manual selection, search selection, next/prev, and auto-play.
+  useEffect(() => {
+    if (!player.currentTrack) return;
+    const track = player.currentTrack;
+
+    setRecentlyPlayed((prev) => {
+      // Don't update if the most recent track is already this one
+      if (prev.length > 0 && prev[0].id === track.id) return prev;
+
+      const filtered = prev.filter((t) => t.id !== track.id);
+      return [track, ...filtered].slice(0, 20);
+    });
+
+    // Sync to Supabase if logged in
+    if (user && !user.is_anonymous) {
+      supabase
+        .from("recently_played")
+        .upsert({
+          user_id: user.id,
+          track_id: track.id,
+          track_data: track as any,
+          played_at: new Date().toISOString()
+        }, { onConflict: "user_id,track_id" })
+        .then(({ error }) => {
+          if (error) console.error("Error saving recently played to DB:", error);
+        });
+    }
+  }, [player.currentTrack?.id, user]);
 
 
   const handleTrackDetail = useCallback((track: Track) => {
@@ -150,27 +180,7 @@ export default function App() {
 
   const handleSelectTrack = useCallback(async (track: Track, contextQueue?: Track[]) => {
     player.playArbitraryTrack(track, contextQueue);
-
-    // Update local state
-    setRecentlyPlayed((prev) => {
-      const filtered = prev.filter((t) => t.id !== track.id);
-      return [track, ...filtered].slice(0, 20);
-    });
-
-    // Supabase update if logged in
-    if (user && !user.is_anonymous) {
-      const { error } = await supabase
-        .from("recently_played")
-        .upsert({
-          user_id: user.id,
-          track_id: track.id,
-          track_data: track as any,
-          played_at: new Date().toISOString()
-        }, { onConflict: 'user_id,track_id' });
-
-      if (error) console.error("Error saving to recently played:", error);
-    }
-  }, [player, user]);
+  }, [player]);
 
   const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
     handleSelectTrack(track);

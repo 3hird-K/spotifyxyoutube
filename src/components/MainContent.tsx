@@ -179,6 +179,7 @@ export default function MainContent(props: MainContentProps) {
         recentlyPlayed={recentlyPlayed}
         onSelectView={setActiveView}
         onTrackDetail={onTrackDetail}
+        onSelect={onSelect}
         onPlayPlaylist={(tracks) => {
           if (tracks.length > 0) {
             onQueueChange(tracks);
