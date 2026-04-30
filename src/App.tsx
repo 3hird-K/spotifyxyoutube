@@ -144,6 +144,15 @@ export default function App() {
   // Automatically update recently played whenever the current track changes.
   // This covers manual selection, search selection, next/prev, and auto-play.
   useEffect(() => {
+    if (player.currentTrack) {
+      const status = player.isPlaying ? "▶" : "⏸";
+      document.title = `${status} ${player.currentTrack.title} - Spotify x YouTube`;
+    } else {
+      document.title = "Spotify Player – YouTube Music";
+    }
+  }, [player.currentTrack, player.isPlaying]);
+
+  useEffect(() => {
     if (!player.currentTrack) return;
     const track = player.currentTrack;
 
@@ -178,8 +187,14 @@ export default function App() {
     setShowNowPlaying(true);
   }, []);
 
-  const handleSelectTrack = useCallback(async (track: Track, contextQueue?: Track[]) => {
+  const handleSelectTrack = useCallback((track: Track, contextQueue?: Track[]) => {
     player.playArbitraryTrack(track, contextQueue);
+    
+    // Explicitly update recently played on user interaction
+    setRecentlyPlayed((prev) => {
+      const filtered = prev.filter((t) => t.id !== track.id);
+      return [track, ...filtered].slice(0, 20);
+    });
   }, [player]);
 
   const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
@@ -911,14 +926,14 @@ export default function App() {
             className={`${
               isPip || document.fullscreenElement || (showNowPlaying && dockRect)
                 ? "fixed z-50 overflow-hidden shadow-2xl bg-black"
-                : "fixed pointer-events-none overflow-hidden opacity-0 z-[-1]"
+                : "fixed pointer-events-none overflow-hidden opacity-[0.001] z-0"
             } ${isPip || document.fullscreenElement ? "rounded-xl border border-zinc-700/50" : ""}`}
             style={{
-              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 0 ? `${dockRect.width}px` : '1px')),
-              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : (dockRect && dockRect.height > 0 ? `${dockRect.height}px` : '1px')),
+              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 0 ? `${dockRect.width}px` : '200px')),
+              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : (dockRect && dockRect.height > 0 ? `${dockRect.height}px` : '200px')),
               top: isPip ? 'auto' : (document.fullscreenElement ? '0' : (dockRect ? `${dockRect.top}px` : 'auto')),
               bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : (dockRect ? 'auto' : '0')),
-              left: isPip || document.fullscreenElement ? 'auto' : (dockRect ? `${dockRect.left}px` : '-9999px'),
+              left: isPip || document.fullscreenElement ? 'auto' : (dockRect ? `${dockRect.left}px` : (isPip ? 'auto' : '-9999px')),
               right: isPip ? '16px' : (document.fullscreenElement ? '0' : 'auto'),
               borderRadius: isPip || document.fullscreenElement || !dockRect ? '12px' : '16px',
               pointerEvents: isPip || document.fullscreenElement ? 'auto' : 'none',
@@ -943,6 +958,15 @@ export default function App() {
                 className="w-full h-full"
                 onReady={player.onPlayerReady}
                 onStateChange={player.onPlayerStateChange}
+                onError={(error) => {
+                  console.error("❌ YouTube Player Error:", error.data, {
+                    2: "Invalid video ID",
+                    5: "HTML5 player error",
+                    100: "Video not found",
+                    101: "Video not allowed to be played embedded",
+                    150: "Same as 101"
+                  }[error.data] || "Unknown error");
+                }}
               />
             </div>
             {isPip && !document.fullscreenElement && (

@@ -100,23 +100,25 @@ export const searchYouTubeMusic = async (
         },
       });
 
-      const videoIds = related.data.items
-        .map((i: any) => i.id.videoId)
+      const items = related.data?.items || [];
+      const videoIds = items
+        .map((i: any) => i.id?.videoId)
         .filter(Boolean)
         .join(",");
 
-      if (!videoIds) return [];
+      if (videoIds) {
+        const videos = await axios.get(`${BASE_URL}/videos`, {
+          params: {
+            part: "snippet,contentDetails",
+            id: videoIds,
+            key: API_KEY,
+            fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+          },
+        });
 
-      const videos = await axios.get(`${BASE_URL}/videos`, {
-        params: {
-          part: "snippet,contentDetails",
-          id: videoIds,
-          key: API_KEY,
-          fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
-        },
-      });
-
-      results = videos.data.items.map((video: any) => mapToTrack(video, "YouTube Recommendations"));
+        const videoItems = videos.data?.items || [];
+        results = videoItems.map((video: any) => mapToTrack(video, "YouTube Recommendations"));
+      }
     }
 
     /* =========================
@@ -135,41 +137,45 @@ export const searchYouTubeMusic = async (
         },
       });
 
-      const videoIds = search.data.items
-        .map((i: any) => i.id.videoId)
+      const items = search.data?.items || [];
+      const videoIds = items
+        .map((i: any) => i.id?.videoId)
         .filter(Boolean)
         .join(",");
 
-      if (!videoIds) return [];
+      if (videoIds) {
+        const videos = await axios.get(`${BASE_URL}/videos`, {
+          params: {
+            part: "snippet,contentDetails",
+            id: videoIds,
+            key: API_KEY,
+            fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+          },
+        });
 
-      const videos = await axios.get(`${BASE_URL}/videos`, {
-        params: {
-          part: "snippet,contentDetails",
-          id: videoIds,
-          key: API_KEY,
-          fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
-        },
-      });
-
-      results = videos.data.items.map((video: any) => mapToTrack(video, "YouTube Music"));
+        const videoItems = videos.data?.items || [];
+        results = videoItems.map((video: any) => mapToTrack(video, "YouTube Music"));
+      }
     }
 
     /* =========================
        4. SAVE TO CACHE
     ========================= */
     if (results.length > 0) {
-      const { error: upsertError } = await supabase
-        .from("youtube_search_cache")
-        .upsert(
-          {
-            query: cacheKey,
-            results: results as any,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: "query" }
-        );
-      
-      if (upsertError) console.error("Cache save error:", upsertError);
+      try {
+        await supabase
+          .from("youtube_search_cache")
+          .upsert(
+            {
+              query: cacheKey,
+              results: results as any,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "query" }
+          );
+      } catch (upsertError) {
+        console.warn("Cache save error (non-fatal):", upsertError);
+      }
     }
 
     return results;
