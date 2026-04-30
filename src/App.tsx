@@ -573,7 +573,7 @@ export default function App() {
         return [...prev, ...fresh];
       });
     };
-  });
+  }, [player.selectTrack, handleTrackDetail]);
 
   const activePlaylistId = activeView.startsWith("playlist:")
     ? activeView.replace("playlist:", "")
@@ -926,7 +926,7 @@ export default function App() {
             className={`${
               isPip || document.fullscreenElement || (showNowPlaying && dockRect)
                 ? "fixed z-50 overflow-hidden shadow-2xl bg-black"
-                : "fixed pointer-events-none overflow-hidden opacity-[0.001] z-0"
+                : "fixed pointer-events-none overflow-hidden opacity-100 z-0"
             } ${isPip || document.fullscreenElement ? "rounded-xl border border-zinc-700/50" : ""}`}
             style={{
               width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 0 ? `${dockRect.width}px` : '200px')),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 
 /**
  * Hook to keep audio playback alive in background tabs
@@ -9,7 +9,7 @@ export function useBackgroundPlayback(
   currentTrackDuration: number | undefined,
   onTrackEnd: () => void
 ) {
-  const rafIdRef = useRef<number | null>(null);
+
   const lastCheckTimeRef = useRef<number>(Date.now());
   const playbackStartTimeRef = useRef<number>(Date.now());
   const isTabActiveRef = useRef<boolean>(!document.hidden);
@@ -70,36 +70,27 @@ export function useBackgroundPlayback(
     };
   }, []);
 
-  // Use RAF for continuous playback tracking
+  // Use setInterval for continuous playback tracking (works better in background than RAF)
   useEffect(() => {
     if (!isPlaying || !currentTrackDuration) return;
 
-    let elapsedSinceLastCheck = 0;
-
-    const checkPlayback = () => {
+    const interval = setInterval(() => {
       const now = Date.now();
-      const timeSinceLastCheck = (now - lastCheckTimeRef.current) / 1000;
 
-      elapsedSinceLastCheck += timeSinceLastCheck;
+      // We don't accumulate elapsedSinceLastCheck anymore, we just check against the start time
+      const totalElapsed = (now - playbackStartTimeRef.current) / 1000;
       lastCheckTimeRef.current = now;
 
       // Check if track should have ended
-      // Add 0.5s buffer to account for timing differences
-      if (elapsedSinceLastCheck >= currentTrackDuration - 0.5) {
+      // Add a small buffer
+      if (totalElapsed >= currentTrackDuration - 0.25) {
+        console.log("Background advancing: track end reached", { totalElapsed, duration: currentTrackDuration });
         onTrackEnd();
-        return; // Stop checking after track ends
+        clearInterval(interval);
       }
+    }, 500);
 
-      rafIdRef.current = requestAnimationFrame(checkPlayback);
-    };
-
-    rafIdRef.current = requestAnimationFrame(checkPlayback);
-
-    return () => {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
+    return () => clearInterval(interval);
   }, [isPlaying, currentTrackDuration, onTrackEnd]);
 
   // Cleanup oscillator on unmount
@@ -119,5 +110,8 @@ export function useBackgroundPlayback(
     playbackStartTimeRef.current = Date.now();
   }, []);
 
-  return { resetPlaybackTimer, isTabActive: isTabActiveRef.current };
+  return useMemo(() => ({ 
+    resetPlaybackTimer, 
+    isTabActive: isTabActiveRef.current 
+  }), [resetPlaybackTimer]);
 }

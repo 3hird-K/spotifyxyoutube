@@ -101,6 +101,13 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   );
 
   const resumeAudioContext = useCallback(() => {
+    if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        audioContextRef.current = new AudioCtx();
+      }
+    }
+    
     if (audioContextRef.current?.state === "suspended") {
       audioContextRef.current.resume().catch(() => { });
     }
@@ -109,13 +116,39 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const kickPlay = useCallback(() => {
     clearPlayRetryTimeouts();
 
-    [250, 750, 1500].forEach((delay) => {
+    // Use a longer sequence of retries to overcome background throttling
+    [250, 750, 1500, 3000, 5000].forEach((delay) => {
       const t = setTimeout(() => {
-        if (playerRef.current && isPlayingRef.current) {
-          try {
-            playerRef.current.playVideo();
-          } catch { }
-        }
+        try {
+          const p = playerRef.current;
+          if (!p || typeof p.getIframe !== 'function' || !p.getIframe()) return;
+
+          const state = p.getPlayerState();
+          // If not playing, try to force it
+          if (state !== 1) {
+            console.log(`KickPlay: Player state is ${state}, forcing playVideo() at ${delay}ms`);
+
+            // Poke the player by toggling mute/unmute which can sometimes wake up background audio
+            if (document.hidden || state === 3 || state === -1) {
+              try {
+                p.mute();
+                setTimeout(() => {
+                  try {
+                    if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+                      p.unMute();
+                      p.playVideo();
+                    }
+                  } catch { }
+                }, 10);
+              } catch { }
+            } else {
+              p.playVideo();
+            }
+
+            // Best effort: set quality to maximize audio bitrate
+            try { p.setPlaybackQuality("hd1080"); } catch { }
+          }
+        } catch { }
       }, delay);
 
       playRetryTimeoutsRef.current.push(t);
@@ -192,21 +225,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       if (isMuted) event.target.mute();
       else event.target.unMute();
 
-      if (isPlayingRef.current && currentIndex >= 0) {
-        try {
-          console.log("Player ready and should be playing, starting playback...");
-          event.target.playVideo();
-          kickPlay();
-        } catch (err) {
-          console.error("Failed to start playback on ready:", err);
-        }
-      } else {
-        try {
-          event.target.pauseVideo();
-        } catch { }
-      }
+      if (isMuted) event.target.mute();
+      else event.target.unMute();
+
+      // We don't start playback here anymore. 
+      // The useEffect watching isPlayerReady will handle it 
+      // to avoid race conditions with loadVideoById.
     },
-    [volume, isMuted, currentIndex, kickPlay]
+    [volume, isMuted]
   );
 
   const startTimer = useCallback(() => {
@@ -243,13 +269,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const onPlayerStateChange = useCallback(
     (event: YouTubeEvent) => {
-      console.log("Player state changed:", event.data, {
+      const stateMap: Record<number, string> = {
         0: "Ended",
         1: "Playing",
         2: "Paused",
         3: "Buffering",
         5: "Cued"
-      }[event.data]);
+      };
+      console.log("Player state changed:", event.data, stateMap[event.data as number] || "Unknown");
 
       if (event.data === 1) {
         // Playing
@@ -338,32 +365,71 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     }
 
     const isNewTrack = currentTrack.youtubeId !== previousTrackIdRef.current;
+    
+    // We only update the ref here so we can track changes
+    const oldTrackId = previousTrackIdRef.current;
     previousTrackIdRef.current = currentTrack.youtubeId;
 
     clearPlaybackGuards();
 
     try {
-      console.log(`Loading video: ${currentTrack.title} (ID: ${currentTrack.youtubeId}) - ${isNewTrack ? "NEW" : "SAME"}`);
+      // If the player just became ready, it already has the currentTrack.youtubeId 
+      // from the component props, so we don't need to loadVideoById unless it's DIFFERENT 
+      // from what was there before.
+      
+      const shouldLoadManual = isNewTrack && oldTrackId !== null;
+
+      console.log(`Playback sync: ${currentTrack.title}`, { 
+        isNewTrack, 
+        shouldLoadManual, 
+        isPlaying,
+        oldTrackId
+      });
       
       if (isPlaying) {
-        trackStartWallTimeRef.current = Date.now();
-        if (isNewTrack) {
-          console.log("Calling loadVideoById()");
-          p.loadVideoById(currentTrack.youtubeId);
+        trackStartWallTimeRef.current = Date.now() - (currentTimeRef.current * 1000);
+        
+        if (shouldLoadManual) {
+          console.log("Scheduling loadVideoById()");
+          setTimeout(() => {
+            try { 
+              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+                p.loadVideoById(currentTrack.youtubeId); 
+              }
+            } catch {}
+          }, 80);
         } else {
-          console.log("Calling playVideo()");
-          p.playVideo();
+          console.log("Scheduling playVideo()");
+          setTimeout(() => {
+            try { 
+              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+                p.playVideo(); 
+              }
+            } catch {}
+          }, 80);
         }
 
         startTimer();
         kickPlay();
       } else {
-        if (isNewTrack) {
-          console.log("Calling cueVideoById()");
-          p.cueVideoById(currentTrack.youtubeId);
+        if (shouldLoadManual) {
+          console.log("Scheduling cueVideoById()");
+          setTimeout(() => {
+            try { 
+              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+                p.cueVideoById(currentTrack.youtubeId); 
+              }
+            } catch {}
+          }, 80);
         } else {
-          console.log("Calling pauseVideo()");
-          p.pauseVideo();
+          console.log("Scheduling pauseVideo()");
+          setTimeout(() => {
+            try { 
+              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+                p.pauseVideo(); 
+              }
+            } catch {}
+          }, 80);
         }
       }
     } catch (err) {
@@ -466,7 +532,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     if (isPlaying) {
       resumeAudioContext();
 
-      if (audioContextRef.current && !oscillatorRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== "closed" && !oscillatorRef.current) {
         const osc = audioContextRef.current.createOscillator();
         osc.frequency.value = 1;
 
@@ -479,11 +545,15 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         try {
           osc.start();
           oscillatorRef.current = osc;
+          console.log("🔊 Silent oscillator STARTED (Background keep-alive)");
         } catch { }
       }
     } else {
       try {
-        oscillatorRef.current?.stop();
+        if (oscillatorRef.current) {
+          oscillatorRef.current.stop();
+          console.log("🔇 Silent oscillator STOPPED");
+        }
       } catch { }
       oscillatorRef.current = null;
     }
