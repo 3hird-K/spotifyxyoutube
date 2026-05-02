@@ -1,6 +1,4 @@
-Need to install the following packages:
-supabase@2.98.0
-Ok to proceed? (y) export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -260,6 +258,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      youtube_artist_cache: {
+        Row: {
+          artist_name: string | null
+          channel_id: string | null
+          created_at: string
+          id: number
+          subscriber_count: string | null
+          thumbnail_url: string | null
+          view_count: string | null
+        }
+        Insert: {
+          artist_name?: string | null
+          channel_id?: string | null
+          created_at?: string
+          id?: number
+          subscriber_count?: string | null
+          thumbnail_url?: string | null
+          view_count?: string | null
+        }
+        Update: {
+          artist_name?: string | null
+          channel_id?: string | null
+          created_at?: string
+          id?: number
+          subscriber_count?: string | null
+          thumbnail_url?: string | null
+          view_count?: string | null
+        }
+        Relationships: []
       }
       youtube_search_cache: {
         Row: {

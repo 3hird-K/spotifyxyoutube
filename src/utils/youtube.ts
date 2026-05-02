@@ -236,8 +236,27 @@ export const searchYouTubeMusic = async (
 };
 
 export const getArtistDetails = async (channelId: string): Promise<{ subscriberCount?: string; viewCount?: string; thumbnailUrl?: string }> => {
-  if (!API_KEY) return {};
+  if (!API_KEY || !channelId) return {};
   try {
+    // 1. Check cache first
+    const { data: cached } = await supabase
+      .from("youtube_artist_cache")
+      .select("*")
+      .eq("channel_id", channelId)
+      .maybeSingle();
+
+    if (cached) {
+      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
+      if (isFresh) {
+        return {
+          subscriberCount: cached.subscriber_count || undefined,
+          viewCount: cached.view_count || undefined,
+          thumbnailUrl: cached.thumbnail_url || undefined,
+        };
+      }
+    }
+
+    // 2. Not cached, fetch from API
     const res = await axios.get(`${BASE_URL}/channels`, {
       params: {
         part: "snippet,statistics",
@@ -247,11 +266,38 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
     });
     const channel = res.data?.items?.[0];
     if (channel) {
-      return {
+      const stats = {
         subscriberCount: channel.statistics?.subscriberCount,
         viewCount: channel.statistics?.viewCount,
         thumbnailUrl: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url,
       };
+
+      // 3. Save to cache
+      const { data: existing } = await supabase
+        .from("youtube_artist_cache")
+        .select("id")
+        .eq("channel_id", channelId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("youtube_artist_cache").update({
+          subscriber_count: stats.subscriberCount,
+          view_count: stats.viewCount,
+          thumbnail_url: stats.thumbnailUrl,
+          created_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("youtube_artist_cache").insert({
+          channel_id: channelId,
+          artist_name: channel.snippet?.title?.toLowerCase() || `id:${channelId}`,
+          subscriber_count: stats.subscriberCount,
+          view_count: stats.viewCount,
+          thumbnail_url: stats.thumbnailUrl,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      return stats;
     }
   } catch (err) {
     console.error("Error fetching channel details:", err);
@@ -262,6 +308,23 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
 export const searchYouTubeArtistThumbnail = async (artistName: string): Promise<string | undefined> => {
   if (!API_KEY || !artistName) return undefined;
   try {
+    const trimmed = artistName.trim().toLowerCase();
+
+    // 1. Check cache first
+    const { data: cached } = await supabase
+      .from("youtube_artist_cache")
+      .select("thumbnail_url, created_at")
+      .eq("artist_name", trimmed)
+      .maybeSingle();
+
+    if (cached) {
+      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
+      if (isFresh && cached.thumbnail_url) {
+        return cached.thumbnail_url;
+      }
+    }
+
+    // 2. Not cached, fetch from API
     const res = await axios.get(`${BASE_URL}/search`, {
       params: {
         part: "snippet",
@@ -273,7 +336,31 @@ export const searchYouTubeArtistThumbnail = async (artistName: string): Promise<
     });
     const item = res.data?.items?.[0];
     if (item && item.snippet?.thumbnails?.high?.url) {
-      return item.snippet.thumbnails.high.url;
+      const thumb = item.snippet.thumbnails.high.url;
+
+      // 3. Save to cache
+      const { data: existing } = await supabase
+        .from("youtube_artist_cache")
+        .select("id")
+        .eq("artist_name", trimmed)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("youtube_artist_cache").update({
+          channel_id: item.id?.channelId || `id:${trimmed}`,
+          thumbnail_url: thumb,
+          created_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("youtube_artist_cache").insert({
+          artist_name: trimmed,
+          channel_id: item.id?.channelId || `id:${trimmed}`,
+          thumbnail_url: thumb,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      return thumb;
     }
   } catch (err) {
     console.error("Error searching channel:", err);
