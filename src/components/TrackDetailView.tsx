@@ -26,6 +26,8 @@ export function TrackDetailView({
   playlists,
   onAddToPlaylist,
   onTrackDetail,
+  isFollowingArtist,
+  onToggleFollowArtist,
 }: {
   track: Track;
   isPlaying: boolean;
@@ -39,6 +41,8 @@ export function TrackDetailView({
   playlists: Playlist[];
   onAddToPlaylist: (plId: string, t: Track) => void;
   onTrackDetail: (t: Track) => void;
+  isFollowingArtist?: (name: string) => boolean;
+  onToggleFollowArtist?: (artist: { name: string; youtubeArtistUrl?: string; thumbnail?: string }) => void;
 }) {
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8">
@@ -50,7 +54,34 @@ export function TrackDetailView({
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Track</p>
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight line-clamp-3">{track.title}</h1>
           <div className="flex flex-wrap items-center gap-2 text-white font-bold text-sm">
-            <span className="hover:underline cursor-pointer truncate">{track.artist}</span>
+            <a
+              href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline cursor-pointer truncate text-[#1DB954] hover:text-[#1ed760] transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {track.artist}
+            </a>
+            {onToggleFollowArtist && isFollowingArtist && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFollowArtist({
+                    name: track.artist,
+                    youtubeArtistUrl: track.youtubeArtistUrl,
+                    thumbnail: track.thumbnail,
+                  });
+                }}
+                className={`ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider transition-all border ${
+                  isFollowingArtist(track.artist)
+                    ? "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60"
+                    : "bg-[#1DB954] text-black border-[#1DB954] hover:bg-[#1ed760] hover:scale-105"
+                }`}
+              >
+                {isFollowingArtist(track.artist) ? "Following" : "Follow"}
+              </button>
+            )}
             <span className="text-zinc-500">•</span>
             <span className="text-zinc-300 font-medium truncate">{track.album}</span>
             <span className="text-zinc-500">•</span>

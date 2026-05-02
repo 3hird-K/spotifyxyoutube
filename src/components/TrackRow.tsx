@@ -89,7 +89,17 @@ export function TrackRow({
           <p className={`text-sm font-semibold truncate ${isCurrent ? "text-[#1DB954]" : "text-white"}`}>
             {track.title}
           </p>
-          <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+          <p className="text-xs text-zinc-400 truncate flex items-center gap-1">
+            <a
+              href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#1DB954] hover:underline transition-colors cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {track.artist}
+            </a>
+          </p>
         </div>
       </div>
 

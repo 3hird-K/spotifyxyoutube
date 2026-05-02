@@ -304,7 +304,16 @@ function MobileTrackCard({
             </div>
             <div className="px-0.5">
                 <p className="text-[11px] font-bold text-white truncate">{track.title}</p>
-                <p className="text-[10px] text-zinc-500 truncate">{track.artist}</p>
+                <p className="text-[10px] text-zinc-500 truncate" onClick={(e) => e.stopPropagation()}>
+                    <a
+                        href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-[#1DB954] hover:underline transition-colors"
+                    >
+                        {track.artist}
+                    </a>
+                </p>
             </div>
         </div>
     );

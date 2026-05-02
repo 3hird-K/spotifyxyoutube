@@ -6,12 +6,15 @@ import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { useSearchMusic } from "../hooks/useSearchMusic";
-import { searchYouTubeMusic } from "../utils/youtube";
+import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
+import axios from "axios";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useFollowedArtists } from "../hooks/useFollowedArtists";
 
 import { LibraryView } from "./LibraryView";
 import { TrackDetailView } from "./TrackDetailView";
+import { ArtistDetailView } from "./ArtistDetailView";
 import { TrackRow } from "./TrackRow";
 import { HomeCard } from "./HomeCard";
 import { MobileHomeView } from "./MobileHomeView";
@@ -52,9 +55,79 @@ interface MainContentProps {
   repeatMode: RepeatMode;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
+  onSearchArtist?: (query: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
 }
+
+const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void }) => {
+  const [realThumbnail, setRealThumbnail] = useState(artist.thumbnail);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRealProfile = async () => {
+      const extractChannelId = (url: string | undefined): string | null => {
+        if (!url) return null;
+        try {
+          const cleanUrl = url.split("?")[0].replace(/\/$/, "");
+          return cleanUrl.split("/").pop() || null;
+        } catch {
+          return null;
+        }
+      };
+
+      let channelId = extractChannelId(artist.youtubeArtistUrl);
+      if (!channelId && artist.track?.youtubeArtistUrl) {
+        channelId = extractChannelId(artist.track.youtubeArtistUrl);
+      }
+
+      if (channelId && isMounted) {
+        const data = await getArtistDetails(channelId);
+        if (isMounted && data.thumbnailUrl) {
+          setRealThumbnail(data.thumbnailUrl);
+        }
+      }
+    };
+    fetchRealProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [artist.name, artist.youtubeArtistUrl]);
+
+  // Clean protocol-relative URLs
+  const cleanUrl = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith("//")) return `https:${url}`;
+    return url;
+  };
+
+  const currentThumbnail = cleanUrl(realThumbnail) || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name)}`;
+
+  const artistTrack = artist.track || {
+    id: `artist-${artist.name}`,
+    youtubeId: "",
+    title: `Songs by ${artist.name}`,
+    artist: artist.name,
+    album: "Recommended Artist",
+    duration: 0,
+    thumbnail: currentThumbnail,
+    genre: "Pop",
+    year: new Date().getFullYear(),
+    youtubeUrl: artist.youtubeArtistUrl,
+  };
+
+  const updatedTrack = { ...artistTrack, thumbnail: currentThumbnail };
+
+  return (
+    <HomeCard
+      track={updatedTrack}
+      onSelect={onSelect}
+      title={artist.name}
+      subtitle="Artist"
+      rounded={true}
+    />
+  );
+};
 
 export default function MainContent(props: MainContentProps) {
   const {
@@ -67,6 +140,7 @@ export default function MainContent(props: MainContentProps) {
     repeatMode,
     onToggleShuffle,
     onToggleRepeat,
+    onSearchArtist,
     showCreateModal,
     setShowCreateModal,
   } = props;
@@ -74,9 +148,11 @@ export default function MainContent(props: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
+  const [selectedArtist, setSelectedArtist] = useState<{ name: string; thumbnail?: string; youtubeArtistUrl?: string } | null>(null);
 
   const isMobile = useIsMobile();
   const profile = useUserProfile(user);
+  const { followedArtists = [], toggleFollowArtist, isFollowing } = useFollowedArtists(user);
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const isLibraryView = activeView === "library";
@@ -150,6 +226,26 @@ export default function MainContent(props: MainContentProps) {
     );
   }
 
+  // Artist detail
+  if (activeView === "artist-detail" && selectedArtist) {
+    return (
+      <ArtistDetailView
+        artist={selectedArtist}
+        isPlaying={isPlaying}
+        currentTrack={currentTrack}
+        onSelect={onSelect}
+        onTogglePlay={onTogglePlay}
+        onToggleLike={onToggleLike}
+        liked={liked}
+        isFollowingArtist={isFollowing}
+        onToggleFollowArtist={toggleFollowArtist}
+        playlists={playlists}
+        onAddToPlaylist={onAddToPlaylist}
+        onTrackDetail={onTrackDetail}
+      />
+    );
+  }
+
   // Track detail
   if (isTrackDetailView && selectedTrackDetail) {
     return (
@@ -166,6 +262,8 @@ export default function MainContent(props: MainContentProps) {
         playlists={playlists}
         onAddToPlaylist={onAddToPlaylist}
         onTrackDetail={onTrackDetail}
+        isFollowingArtist={isFollowing}
+        onToggleFollowArtist={toggleFollowArtist}
       />
     );
   }
@@ -189,6 +287,65 @@ export default function MainContent(props: MainContentProps) {
       />
     );
   }
+
+  // Combine unique artists from followed artists, recently played, liked, and apiTracks
+  const suggestedArtists = (() => {
+    const uniqueArtists: { name: string; thumbnail?: string; youtubeArtistUrl?: string; track?: Track }[] = [];
+    const seenNames = new Set<string>();
+
+    // 1. Add followed artists
+    followedArtists.forEach((fa) => {
+      if (fa.name && !seenNames.has(fa.name)) {
+        seenNames.add(fa.name);
+        uniqueArtists.push({
+          name: fa.name,
+          thumbnail: fa.thumbnail,
+          youtubeArtistUrl: fa.youtubeArtistUrl,
+        });
+      }
+    });
+
+    // 2. Add from recently played
+    recentlyPlayed.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist)) {
+        seenNames.add(t.artist);
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    // 3. Add from liked
+    likedTracks.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist)) {
+        seenNames.add(t.artist);
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    // 4. Add from top trending / api tracks
+    apiTracks.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist)) {
+        seenNames.add(t.artist);
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    return uniqueArtists.slice(0, 10);
+  })();
 
   // Determine tracks to display for list views (for desktop/non-home views)
   let displayTracks: Track[] = [];
@@ -457,6 +614,23 @@ export default function MainContent(props: MainContentProps) {
                         onSelect={(t) => onSelect(t, recentlyPlayed)}
                         title={track.title}
                         subtitle={`${track.artist}`}
+                      />
+                    </div>
+                  ))}
+                </HorizontalScrollSection>
+              )}
+
+              {/* Recommended artists */}
+              {suggestedArtists.length > 0 && (
+                <HorizontalScrollSection title="Recommended artists">
+                  {suggestedArtists.map((artist, idx) => (
+                    <div key={`artist-rec-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                      <ArtistCard
+                        artist={artist}
+                        onSelect={() => {
+                          setSelectedArtist(artist);
+                          setActiveView("artist-detail");
+                        }}
                       />
                     </div>
                   ))}

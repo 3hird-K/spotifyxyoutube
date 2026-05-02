@@ -96,7 +96,16 @@ export default function SearchModal({
                           />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-white truncate">{track.title}</p>
-                            <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+                            <p className="text-xs text-zinc-400 truncate" onClick={(e) => e.stopPropagation()}>
+                              <a
+                                href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-[#1DB954] hover:underline transition-colors"
+                              >
+                                {track.artist}
+                              </a>
+                            </p>
                           </div>
                         </button>
                         <button
@@ -153,8 +162,15 @@ export default function SearchModal({
                       <p className="text-sm font-bold text-white truncate">
                         {track.title}
                       </p>
-                      <p className="text-xs text-zinc-400 truncate">
-                        {track.artist}
+                      <p className="text-xs text-zinc-400 truncate" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-[#1DB954] hover:underline transition-colors"
+                        >
+                          {track.artist}
+                        </a>
                       </p>
                     </div>
 

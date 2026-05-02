@@ -39,7 +39,16 @@ export function MobilePlayer({
         />
         <div className="flex-1 min-w-0">
           <p className="text-white text-[11px] font-bold truncate">{track.title}</p>
-          <p className="text-zinc-400 text-[10px] truncate">{track.artist}</p>
+          <p className="text-zinc-400 text-[10px] truncate" onClick={(e) => e.stopPropagation()}>
+            <a
+              href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#1DB954] hover:underline transition-colors"
+            >
+              {track.artist}
+            </a>
+          </p>
         </div>
         <div className="flex items-center gap-0.5 pr-1">
           <button

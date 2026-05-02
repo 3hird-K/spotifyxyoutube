@@ -33,6 +33,9 @@ const mapToTrack = (video: any, albumName: string): Track => ({
   thumbnail: video.snippet.thumbnails?.high?.url || video.snippet.thumbnails?.default?.url || "",
   genre: albumName === "YouTube Recommendations" ? "Mixed" : "Pop",
   year: video.snippet.publishedAt ? new Date(video.snippet.publishedAt).getFullYear() : new Date().getFullYear(),
+  spotifyUrl: `https://open.spotify.com/search/${encodeURIComponent(video.snippet.title)}`,
+  spotifyArtistUrl: `https://open.spotify.com/search/${encodeURIComponent(video.snippet.channelTitle)}`,
+  youtubeArtistUrl: video.snippet.channelId ? `https://music.youtube.com/channel/${video.snippet.channelId}` : undefined,
   youtubeUrl: `https://www.youtube.com/watch?v=${video.id}`,
   description: video.snippet.description || "",
 });
@@ -107,7 +110,7 @@ export const searchYouTubeMusic = async (
         searchQuery = `${title} ${channel} similar songs`;
       }
 
-      const search = await axios.get(`${BASE_URL}/search`, {
+      let search = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
           maxResults: 15,
@@ -119,7 +122,21 @@ export const searchYouTubeMusic = async (
         },
       });
 
-      const items = search.data?.items || [];
+      let items = search.data?.items || [];
+      if (items.length === 0) {
+        search = await axios.get(`${BASE_URL}/search`, {
+          params: {
+            part: "snippet",
+            maxResults: 15,
+            q: searchQuery,
+            type: "video",
+            key: API_KEY,
+            fields: "items(id/videoId)"
+          },
+        });
+        items = search.data?.items || [];
+      }
+
       const videoIds = items
         .map((i: any) => i.id?.videoId)
         .filter(Boolean)
@@ -131,7 +148,7 @@ export const searchYouTubeMusic = async (
             part: "snippet,contentDetails",
             id: videoIds,
             key: API_KEY,
-            fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+            fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
           },
         });
 
@@ -144,7 +161,7 @@ export const searchYouTubeMusic = async (
        3. NORMAL SEARCH MODE
     ========================= */
     else {
-      const search = await axios.get(`${BASE_URL}/search`, {
+      let search = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
           maxResults: 15,
@@ -156,7 +173,21 @@ export const searchYouTubeMusic = async (
         },
       });
 
-      const items = search.data?.items || [];
+      let items = search.data?.items || [];
+      if (items.length === 0) {
+        search = await axios.get(`${BASE_URL}/search`, {
+          params: {
+            part: "snippet",
+            maxResults: 15,
+            q: trimmedQuery,
+            type: "video",
+            key: API_KEY,
+            fields: "items(id/videoId)"
+          },
+        });
+        items = search.data?.items || [];
+      }
+
       const videoIds = items
         .map((i: any) => i.id?.videoId)
         .filter(Boolean)
@@ -168,7 +199,7 @@ export const searchYouTubeMusic = async (
             part: "snippet,contentDetails",
             id: videoIds,
             key: API_KEY,
-            fields: "items(id,snippet(title,channelTitle,thumbnails,publishedAt,description),contentDetails(duration))"
+            fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
           },
         });
 
@@ -202,4 +233,28 @@ export const searchYouTubeMusic = async (
     console.error("YouTube API Error:", error);
     return [];
   }
+};
+
+export const getArtistDetails = async (channelId: string): Promise<{ subscriberCount?: string; viewCount?: string; thumbnailUrl?: string }> => {
+  if (!API_KEY) return {};
+  try {
+    const res = await axios.get(`${BASE_URL}/channels`, {
+      params: {
+        part: "snippet,statistics",
+        id: channelId,
+        key: API_KEY,
+      }
+    });
+    const channel = res.data?.items?.[0];
+    if (channel) {
+      return {
+        subscriberCount: channel.statistics?.subscriberCount,
+        viewCount: channel.statistics?.viewCount,
+        thumbnailUrl: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url,
+      };
+    }
+  } catch (err) {
+    console.error("Error fetching channel details:", err);
+  }
+  return {};
 };

@@ -9,6 +9,8 @@ export interface Track {
   genre: string;
   year: number;
   spotifyUrl?: string;
+  spotifyArtistUrl?: string;
+  youtubeArtistUrl?: string;
   youtubeUrl: string;
   description?: string;
 }

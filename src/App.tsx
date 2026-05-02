@@ -6,6 +6,7 @@ import PlayerBar from "./components/PlayerBar";
 import MainContent from "./components/MainContent";
 import NowPlaying from "./components/NowPlaying";
 import SearchModal from "./components/SearchModal";
+import { useFollowedArtists } from "./hooks/useFollowedArtists";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
 import { MobilePlayer } from "./components/MobilePlayer";
 import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
@@ -49,6 +50,7 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const player = usePlayer([], user);
+  const { toggleFollowArtist, isFollowing } = useFollowedArtists(user);
   const initialVideoIdRef = useRef<string | null>(null);
   if (player.currentTrack && !initialVideoIdRef.current) {
     initialVideoIdRef.current = player.currentTrack.youtubeId;
@@ -160,8 +162,11 @@ export default function App() {
   // This covers manual selection, search selection, next/prev, and auto-play.
   useEffect(() => {
     if (player.currentTrack) {
-      // const status = player.isPlaying ? "▶" : "⏸";
-      document.title = `${player.currentTrack.title} - Spotify x YouTube`;
+      if (player.currentTrack.artist) {
+        document.title = `${player.currentTrack.title} • ${player.currentTrack.artist} - Spotify x YouTube`;
+      } else {
+        document.title = `${player.currentTrack.title} - Spotify x YouTube`;
+      }
     } else {
       document.title = "Spotify Player – YouTube Music";
     }
@@ -278,6 +283,13 @@ export default function App() {
         .eq("track_id", trackId);
     }
   }, [user]);
+
+  const handleSearchArtist = useCallback(async (query: string) => {
+    setActiveView("search-results");
+    const results = await searchYouTubeMusic(query);
+    setSearchResults(results);
+    player.setQueue(results);
+  }, [player]);
 
   // Sync playlists from Supabase if logged in
   useEffect(() => {
@@ -663,6 +675,7 @@ export default function App() {
               repeatMode={player.repeatMode}
               onToggleShuffle={player.toggleShuffle}
               onToggleRepeat={player.toggleRepeat}
+              onSearchArtist={handleSearchArtist}
               showCreateModal={showCreateModal}
               setShowCreateModal={setShowCreateModal}
             />
@@ -702,6 +715,8 @@ export default function App() {
                   track={player.currentTrack}
                   liked={player.liked}
                   onToggleLike={player.toggleLike}
+                  isFollowingArtist={isFollowing}
+                  onToggleFollowArtist={toggleFollowArtist}
                 />
 
                 {/* User Profile Card (from previous step) */}

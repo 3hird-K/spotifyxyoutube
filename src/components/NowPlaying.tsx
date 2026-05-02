@@ -17,9 +17,17 @@ interface NowPlayingProps {
   track: Track | null;
   liked: Set<string>;
   onToggleLike: (track: Track) => void;
+  isFollowingArtist?: (name: string) => boolean;
+  onToggleFollowArtist?: (artist: { name: string; youtubeArtistUrl?: string; thumbnail?: string }) => void;
 }
 
-export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingProps) {
+export default function NowPlaying({
+  track,
+  liked,
+  onToggleLike,
+  isFollowingArtist,
+  onToggleFollowArtist,
+}: NowPlayingProps) {
   const [showLinks, setShowLinks] = useState(false);
 
   if (!track) {
@@ -60,7 +68,33 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
           <div className="flex items-start justify-between gap-4">
             <div className="overflow-hidden flex-1">
               <h2 className="text-2xl font-black text-white leading-tight tracking-tight break-words">{track.title}</h2>
-              <p className="text-base text-zinc-400 font-bold mt-2 hover:text-white transition-colors cursor-pointer">{track.artist}</p>
+              <a
+                href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-base text-[#1DB954] hover:text-[#1ed760] font-bold mt-2 hover:underline transition-colors cursor-pointer"
+              >
+                {track.artist}
+              </a>
+              {onToggleFollowArtist && isFollowingArtist && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFollowArtist({
+                      name: track.artist,
+                      youtubeArtistUrl: track.youtubeArtistUrl,
+                      thumbnail: track.thumbnail,
+                    });
+                  }}
+                  className={`ml-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider transition-all border inline-flex items-center ${
+                    isFollowingArtist(track.artist)
+                      ? "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60"
+                      : "bg-[#1DB954] text-black border-[#1DB954] hover:bg-[#1ed760] hover:scale-105"
+                  }`}
+                >
+                  {isFollowingArtist(track.artist) ? "Following" : "Follow"}
+                </button>
+              )}
             </div>
             <Tooltip>
               <TooltipTrigger
@@ -165,6 +199,27 @@ export default function NowPlaying({ track, liked, onToggleLike }: NowPlayingPro
                   <ExternalLink size={14} className="text-zinc-600 group-hover:text-zinc-400 shrink-0" />
                 </a>
               )}
+
+              {/* YouTube Creator URL */}
+              <a
+                href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-red-600/10 border border-red-600/20 hover:bg-red-600/20 transition-colors group"
+              >
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] text-red-500 shrink-0" fill="currentColor">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                </svg>
+                <div className="overflow-hidden flex-1">
+                  <p className="text-xs font-bold text-red-400 uppercase tracking-wide">
+                    YouTube Creator
+                  </p>
+                  <p className="text-sm text-zinc-300 truncate group-hover:text-white transition-colors">
+                    Follow {track.artist} on YouTube Music
+                  </p>
+                </div>
+                <ExternalLink size={14} className="text-zinc-600 group-hover:text-zinc-400 shrink-0" />
+              </a>
             </div>
           )}
         </div>

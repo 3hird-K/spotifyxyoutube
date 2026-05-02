@@ -1,4 +1,6 @@
-export type Json =
+Need to install the following packages:
+supabase@2.98.0
+Ok to proceed? (y) export type Json =
   | string
   | number
   | boolean
@@ -14,6 +16,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      followed_artists: {
+        Row: {
+          artist_id: string
+          artist_name: string
+          followed_at: string
+          thumbnail: string | null
+          user_id: string
+          youtube_artist_url: string | null
+        }
+        Insert: {
+          artist_id: string
+          artist_name: string
+          followed_at?: string
+          thumbnail?: string | null
+          user_id: string
+          youtube_artist_url?: string | null
+        }
+        Update: {
+          artist_id?: string
+          artist_name?: string
+          followed_at?: string
+          thumbnail?: string | null
+          user_id?: string
+          youtube_artist_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followed_artists_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liked_songs: {
         Row: {
           liked_at: string | null
