@@ -29,6 +29,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const currentTimeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(isPlaying);
   const currentTrackRef = useRef<Track | null>(null);
+  const lastPokedTrackIdRef = useRef<string | null>(null);
+  const lastStuckTimeRef = useRef<number>(Date.now());
+  const volumeRef = useRef<number>(volume);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
@@ -38,12 +41,15 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
 
+
+
   // Keep refs in sync
   useEffect(() => {
     isPlayingRef.current = isPlaying;
     currentTrackRef.current = currentTrack;
     currentTimeRef.current = currentTime;
-  }, [isPlaying, currentTrack, currentTime]);
+    volumeRef.current = volume;
+  }, [isPlaying, currentTrack, currentTime, volume]);
 
   // Init AudioContext (best effort only)
   useEffect(() => {
@@ -92,11 +98,57 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   }, [clearTimer, clearPlaybackSafetyTimeout, clearPlayRetryTimeouts]);
 
   // Use background playback hook to handle inactive tabs
+  // Replace the existing background tick callback in usePlayer.ts with this enhanced version:
+
   const backgroundPlayback = useBackgroundPlayback(
     isPlaying,
     currentTrack?.duration,
+    () => handleNextRef.current(true),
     () => {
-      handleNextRef.current(true);
+      // 🔥 NEW LOGIC HERE 🔥
+      const p = playerRef.current;
+      if (!p || typeof p.getPlayerState !== "function") return;
+
+      try {
+        const state = p.getPlayerState();
+        const track = currentTrackRef.current;
+
+        if (isPlayingRef.current && track) {
+          if (state === 1) {
+            lastStuckTimeRef.current = Date.now();
+            if (!isMuted) {
+              try {
+                p.unMute();
+                p.setVolume(volumeRef.current * 100);
+              } catch { }
+            }
+          }
+          // CASE 1: Paused or Cued (Common in background)
+          if (state === 2 || state === 5) {
+            // console.log(`[BG] Paused/Cued -> forcing playVideo()`);
+            p.playVideo();
+          }
+          // CASE 2: Stuck Unstarted (THE KILLER)
+          else if (state === -1) {
+            const isNewTrack = track.youtubeId !== lastPokedTrackIdRef.current;
+
+            // First time seeing this track? Load it.
+            if (isNewTrack) {
+              // console.log(`[BG] NEW TRACK (${track.title}) -> load + play`);
+              p.loadVideoById(track.youtubeId);
+              setTimeout(() => p.playVideo(), 100);
+              lastPokedTrackIdRef.current = track.youtubeId;
+              lastStuckTimeRef.current = Date.now();
+            }
+            // Stuck on same track? Only NUKE IT if it has been unstarted for more than 10 seconds
+            else if (Date.now() - lastStuckTimeRef.current > 10000) {
+              // console.log(`[BG] STUCK in ${state} for too long -> 💥 WAKE UP 💥`);
+              wakeUpPlayer();
+              lastStuckTimeRef.current = Date.now();
+            }
+          }
+        }
+      } catch { }
     }
   );
 
@@ -107,7 +159,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         audioContextRef.current = new AudioCtx();
       }
     }
-    
+
     if (audioContextRef.current?.state === "suspended") {
       audioContextRef.current.resume().catch(() => { });
     }
@@ -116,44 +168,67 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const kickPlay = useCallback(() => {
     clearPlayRetryTimeouts();
 
-    // Use a longer sequence of retries to overcome background throttling
-    [250, 750, 1500, 3000, 5000].forEach((delay) => {
+    // If the tab is hidden, we MUST be aggressive. 
+    // YouTube ignores slow retries in background tabs.
+    const isHidden = document.hidden;
+    const delays = isHidden
+      ? [200, 500, 1000, 2000, 4000] // Fast retries for background
+      : [250, 750, 1500, 3000, 5000]; // Normal retries for foreground
+
+    const runAttempt = (delay: number) => {
       const t = setTimeout(() => {
         try {
           const p = playerRef.current;
           if (!p || typeof p.getIframe !== 'function' || !p.getIframe()) return;
 
           const state = p.getPlayerState();
-          // If not playing, try to force it
-          if (state !== 1) {
-            console.log(`KickPlay: Player state is ${state}, forcing playVideo() at ${delay}ms`);
 
-            // Poke the player by toggling mute/unmute which can sometimes wake up background audio
-            if (document.hidden || state === 3 || state === -1) {
-              try {
-                p.mute();
-                setTimeout(() => {
-                  try {
-                    if (p && typeof p.getIframe === 'function' && p.getIframe()) {
-                      p.unMute();
-                      p.playVideo();
-                    }
-                  } catch { }
-                }, 10);
-              } catch { }
-            } else {
-              p.playVideo();
-            }
-
-            // Best effort: set quality to maximize audio bitrate
-            try { p.setPlaybackQuality("hd1080"); } catch { }
+          // If we are hidden and stuck in unstarted, USE THE NUKE
+          if (isHidden && state === -1) {
+            // console.log(`[KickPlay] Background stuck in ${state}, NUKING with mute/play`);
+            p.mute();
+            p.playVideo();
+            setTimeout(() => p.unMute(), 150);
+          }
+          // Normal poke
+          else if (state !== undefined && state !== 1 && state !== 3) {
+            // console.log(`[KickPlay] State ${state} -> forcing playVideo`);
+            p.playVideo();
           }
         } catch { }
       }, delay);
-
       playRetryTimeoutsRef.current.push(t);
-    });
+    };
+
+    delays.forEach(runAttempt);
   }, [clearPlayRetryTimeouts]);
+
+
+  // This is the secret weapon for background tabs
+  const wakeUpPlayer = useCallback(() => {
+    try {
+      const p = playerRef.current;
+      if (!p || typeof p.getIframe !== 'function' || !p.getIframe()) return;
+
+      // YouTube blocks play() in background if audio is on. 
+      // We must Mute -> Play -> Unmute.
+      if (p.isMuted()) {
+        p.unMute();
+      } else {
+        p.mute();
+      }
+
+      p.playVideo();
+
+      // Schedule unmute 200ms later
+      setTimeout(() => {
+        try { p.unMute(); } catch { }
+      }, 200);
+
+    } catch (e) {
+      console.error("Wake up failed", e);
+    }
+  }, []);
 
   const setQueueOnly = useCallback((tracks: Track[]) => {
     setQueue(tracks);
@@ -212,7 +287,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const onPlayerReady = useCallback(
     (event: YouTubeEvent) => {
-      console.log("✅ YouTube Player READY!");
+      // console.log("✅ YouTube Player READY!");
       playerRef.current = event.target;
       setIsPlayerReady(true);
 
@@ -257,9 +332,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
             elapsed,
             (Date.now() - trackStartWallTimeRef.current) / 1000
           );
-          
+
           if (estimatedElapsed >= track.duration - 0.25) {
-            console.log("Timer: Track ended, advancing...");
+            // console.log("Timer: Track ended, advancing...");
             handleNextRef.current(true);
           }
         }
@@ -270,19 +345,27 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const onPlayerStateChange = useCallback(
     (event: YouTubeEvent) => {
       const stateMap: Record<number, string> = {
+        "-1": "Unstarted",
         0: "Ended",
         1: "Playing",
         2: "Paused",
         3: "Buffering",
         5: "Cued"
       };
-      console.log("Player state changed:", event.data, stateMap[event.data as number] || "Unknown");
+      // console.log("Player state changed:", event.data, stateMap[event.data as number] || "Unknown");
 
       if (event.data === 1) {
         // Playing
         setIsPlaying(true);
         trackStartWallTimeRef.current = Date.now() - currentTimeRef.current * 1000;
         startTimer();
+
+        setTimeout(() => {
+          try {
+            event.target.unMute();
+            event.target.setVolume(volumeRef.current * 100);
+          } catch { }
+        }, 150);
       } else if (event.data === 2) {
         // Paused
         setIsPlaying(false);
@@ -290,16 +373,18 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         clearPlaybackSafetyTimeout();
       } else if (event.data === 0) {
         // Ended
-        console.log("Track ended, moving to next...");
+        // console.log("Track ended, moving to next...");
         clearTimer();
         clearPlaybackSafetyTimeout();
         handleNextRef.current(true);
-      } else if (event.data === 3) {
-        // Buffering
-        console.log("Video buffering...");
-      } else if (event.data === 5) {
-        // Cued
-        console.log("Video cued, ready to play");
+      } else if (event.data === 5 || event.data === -1) {
+        // Cued or Unstarted
+        // console.log("Video cued/unstarted. Attempting immediate foreground/background playVideo...");
+        if (isPlayingRef.current) {
+          try {
+            event.target.playVideo();
+          } catch { }
+        }
       }
     },
     [clearTimer, clearPlaybackSafetyTimeout, startTimer]
@@ -328,13 +413,13 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
         // If we're past the end of the track, move to next
         if (estimatedTime >= track.duration - 1.0) {
-          console.log(`Tab returned, track elapsed: ${estimatedTime}s/${track.duration}s - advancing`);
+          // console.log(`Tab returned, track elapsed: ${estimatedTime}s/${track.duration}s - advancing`);
           handleNextRef.current(true);
           return;
         }
 
         // Resume playback
-        console.log(`Tab returned, resuming playback at ${estimatedTime}s`);
+        // console.log(`Tab returned, resuming playback at ${estimatedTime}s`);
         p.playVideo();
         kickPlay();
         startTimer();
@@ -356,16 +441,16 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   useEffect(() => {
     const p = playerRef.current;
     if (!p || !isPlayerReady || !currentTrack?.youtubeId) {
-      console.log("Video load skipped:", {
-        playerExists: !!p,
-        isReady: isPlayerReady,
-        hasYoutubeId: !!currentTrack?.youtubeId,
-      });
+      // console.log("Video load skipped:", {
+      //   playerExists: !!p,
+      //   isReady: isPlayerReady,
+      //   hasYoutubeId: !!currentTrack?.youtubeId,
+      // });
       return;
     }
 
     const isNewTrack = currentTrack.youtubeId !== previousTrackIdRef.current;
-    
+
     // We only update the ref here so we can track changes
     const oldTrackId = previousTrackIdRef.current;
     previousTrackIdRef.current = currentTrack.youtubeId;
@@ -376,59 +461,65 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       // If the player just became ready, it already has the currentTrack.youtubeId 
       // from the component props, so we don't need to loadVideoById unless it's DIFFERENT 
       // from what was there before.
-      
+
       const shouldLoadManual = isNewTrack && oldTrackId !== null;
 
-      console.log(`Playback sync: ${currentTrack.title}`, { 
-        isNewTrack, 
-        shouldLoadManual, 
-        isPlaying,
-        oldTrackId
-      });
-      
+      // console.log(`Playback sync: ${currentTrack.title}`, {
+      //   isNewTrack,
+      //   shouldLoadManual,
+      //   isPlaying,
+      //   oldTrackId
+      // });
+
       if (isPlaying) {
         trackStartWallTimeRef.current = Date.now() - (currentTimeRef.current * 1000);
-        
-        if (shouldLoadManual) {
-          console.log("Scheduling loadVideoById()");
-          setTimeout(() => {
-            try { 
-              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
-                p.loadVideoById(currentTrack.youtubeId); 
-              }
-            } catch {}
-          }, 80);
+
+        // console.log(`[Playback Sync] Loading ${currentTrack.title} (new=${isNewTrack})`);
+
+        if (shouldLoadManual || document.hidden) {
+          try {
+            p.mute(); // Mute to bypass Autoplay Block
+            p.loadVideoById(currentTrack.youtubeId);
+            p.playVideo();
+            lastPokedTrackIdRef.current = currentTrack.youtubeId;
+            lastStuckTimeRef.current = Date.now();
+          } catch { }
         } else {
-          console.log("Scheduling playVideo()");
-          setTimeout(() => {
-            try { 
-              if (p && typeof p.getIframe === 'function' && p.getIframe()) {
-                p.playVideo(); 
-              }
-            } catch {}
-          }, 80);
+          try { p.playVideo(); } catch { }
         }
 
         startTimer();
         kickPlay();
       } else {
         if (shouldLoadManual) {
-          console.log("Scheduling cueVideoById()");
+          // console.log("Direct & Scheduled cueVideoById()");
+          try {
+            if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+              p.cueVideoById(currentTrack.youtubeId);
+            }
+          } catch { }
+
           setTimeout(() => {
-            try { 
+            try {
               if (p && typeof p.getIframe === 'function' && p.getIframe()) {
-                p.cueVideoById(currentTrack.youtubeId); 
+                p.cueVideoById(currentTrack.youtubeId);
               }
-            } catch {}
+            } catch { }
           }, 80);
         } else {
-          console.log("Scheduling pauseVideo()");
+          // console.log("Direct & Scheduled pauseVideo()");
+          try {
+            if (p && typeof p.getIframe === 'function' && p.getIframe()) {
+              p.pauseVideo();
+            }
+          } catch { }
+
           setTimeout(() => {
-            try { 
+            try {
               if (p && typeof p.getIframe === 'function' && p.getIframe()) {
-                p.pauseVideo(); 
+                p.pauseVideo();
               }
-            } catch {}
+            } catch { }
           }, 80);
         }
       }
@@ -474,7 +565,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       );
 
       if (estimatedElapsed >= track.duration - 0.75) {
-        console.log("Safety timeout: advancing to next track...");
+        // console.log("Safety timeout: advancing to next track...");
         handleNextRef.current(true);
       }
     }, remainingMs);
@@ -497,7 +588,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const togglePlay = useCallback(() => {
     if (!playerRef.current) {
-      console.log("⚠️ Player not ready for toggle");
+      // console.log("⚠️ Player not ready for toggle");
       return;
     }
 
@@ -505,7 +596,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
     setIsPlaying((prev) => {
       const next = !prev;
-      console.log(`Toggle play: ${prev ? "PLAYING → PAUSED" : "PAUSED → PLAYING"}`);
+      // console.log(`Toggle play: ${prev ? "PLAYING → PAUSED" : "PAUSED → PLAYING"}`);
 
       try {
         if (next) {
@@ -534,10 +625,10 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
       if (audioContextRef.current && audioContextRef.current.state !== "closed" && !oscillatorRef.current) {
         const osc = audioContextRef.current.createOscillator();
-        osc.frequency.value = 1;
+        osc.frequency.value = 100; // 100 Hz
 
         const gain = audioContextRef.current.createGain();
-        gain.gain.value = 0.001;
+        gain.gain.value = 0.002; // Tiny gain to be silent but keep-alive
 
         osc.connect(gain);
         gain.connect(audioContextRef.current.destination);
@@ -545,14 +636,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         try {
           osc.start();
           oscillatorRef.current = osc;
-          console.log("🔊 Silent oscillator STARTED (Background keep-alive)");
+          // console.log("🔊 Silent oscillator STARTED (Background keep-alive)");
         } catch { }
       }
     } else {
       try {
         if (oscillatorRef.current) {
           oscillatorRef.current.stop();
-          console.log("🔇 Silent oscillator STOPPED");
+          // console.log("🔇 Silent oscillator STOPPED");
         }
       } catch { }
       oscillatorRef.current = null;
@@ -615,71 +706,57 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     });
   }, [backgroundPlayback]);
 
-  const handleNext = useCallback(
-    (auto = false) => {
-      resumeAudioContext();
-      clearPlaybackGuards();
 
-      if (repeatMode === "one" && auto) {
-        setCurrentTime(0);
-        setProgress(0);
-        currentTimeRef.current = 0;
-        trackStartWallTimeRef.current = Date.now();
-        backgroundPlayback.resetPlaybackTimer();
+  const handleNext = useCallback((auto = false) => {
+    resumeAudioContext();
+    clearPlaybackGuards();
 
-        try {
-          playerRef.current?.seekTo(0, true);
-          playerRef.current?.playVideo();
-          kickPlay();
-        } catch { }
+    // CRITICAL: Reset poke tracker so background worker treats it as new track
+    lastPokedTrackIdRef.current = null;
 
-        return;
-      }
-
-      if (queue.length === 0) return;
-
+    if (repeatMode === "one" && auto) {
       setCurrentTime(0);
       setProgress(0);
       currentTimeRef.current = 0;
       trackStartWallTimeRef.current = Date.now();
       backgroundPlayback.resetPlaybackTimer();
 
-      if (isShuffle) {
-        const nextIdx = Math.floor(Math.random() * queue.length);
-        setCurrentIndex(nextIdx);
-        setIsPlaying(true);
-      } else {
-        const nextIdx = currentIndex + 1;
+      try {
+        playerRef.current?.seekTo(0, true);
+        playerRef.current?.playVideo();
+        kickPlay();
+      } catch { }
 
-        if (nextIdx >= queue.length) {
-          if (repeatMode === "all") {
-            setCurrentIndex(0);
-            setIsPlaying(true);
-          } else if (currentIndex >= 0) {
-            const lastTrack = queue[currentIndex] || null;
-            onExhaustedRef.current(lastTrack);
-          }
+      return;
+    }
+
+    if (queue.length === 0) return;
+
+    setCurrentTime(0);
+    setProgress(0);
+    currentTimeRef.current = 0;
+    trackStartWallTimeRef.current = Date.now();
+    backgroundPlayback.resetPlaybackTimer();
+
+    if (isShuffle) {
+      const nextIdx = Math.floor(Math.random() * queue.length);
+      setCurrentIndex(nextIdx);
+    } else {
+      const nextIdx = currentIndex + 1;
+      if (nextIdx >= queue.length) {
+        if (repeatMode === "all") {
+          setCurrentIndex(0);
         } else {
-          setCurrentIndex(nextIdx);
-          setIsPlaying(true);
+          onExhaustedRef.current(queue[currentIndex] || null);
+          return;
         }
+      } else {
+        setCurrentIndex(nextIdx);
       }
+    }
 
-      if ("mediaSession" in navigator) {
-        navigator.mediaSession.playbackState = "playing";
-      }
-    },
-    [
-      currentIndex,
-      queue,
-      isShuffle,
-      repeatMode,
-      resumeAudioContext,
-      clearPlaybackGuards,
-      kickPlay,
-      backgroundPlayback,
-    ]
-  );
+    setIsPlaying(true);
+  }, [currentIndex, queue, isShuffle, repeatMode, resumeAudioContext, clearPlaybackGuards, backgroundPlayback, wakeUpPlayer]);
 
   useEffect(() => {
     handleNextRef.current = handleNext;

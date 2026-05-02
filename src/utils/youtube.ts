@@ -88,19 +88,38 @@ export const searchYouTubeMusic = async (
        2. RECOMMENDATION MODE
     ========================= */
     if (options?.mode === "recommend" && options.videoId) {
-      const related = await axios.get(`${BASE_URL}/search`, {
+      // Since relatedToVideoId is deprecated and returns 400, 
+      // we first fetch the video title/artist to perform a search for similar content.
+      const videoDetail = await axios.get(`${BASE_URL}/videos`, {
         params: {
           part: "snippet",
-          relatedToVideoId: options.videoId,
-          type: "video",
+          id: options.videoId,
+          key: API_KEY,
+        },
+      });
+
+      const video = videoDetail.data?.items?.[0];
+      let searchQuery = query;
+
+      if (video) {
+        const title = video.snippet.title.replace(/[^\w\s]/gi, '');
+        const channel = video.snippet.channelTitle;
+        searchQuery = `${title} ${channel} similar songs`;
+      }
+
+      const search = await axios.get(`${BASE_URL}/search`, {
+        params: {
+          part: "snippet",
           maxResults: 15,
+          q: searchQuery,
+          type: "video",
           videoCategoryId: "10",
           key: API_KEY,
           fields: "items(id/videoId)"
         },
       });
 
-      const items = related.data?.items || [];
+      const items = search.data?.items || [];
       const videoIds = items
         .map((i: any) => i.id?.videoId)
         .filter(Boolean)

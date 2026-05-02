@@ -48,8 +48,11 @@ export default function App() {
   const [playlistToDelete, setPlaylistToDelete] = useState<Playlist | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // -- Player ────────────────────────────────────────────────────────────────
   const player = usePlayer([], user);
+  const initialVideoIdRef = useRef<string | null>(null);
+  if (player.currentTrack && !initialVideoIdRef.current) {
+    initialVideoIdRef.current = player.currentTrack.youtubeId;
+  }
 
   // -- Video / PIP State --
   const [isPip, setIsPip] = useState(false);
@@ -103,9 +106,21 @@ export default function App() {
     const updateDock = () => {
       const dock = document.getElementById("sidebar-video-dock");
       if (dock && dock.offsetWidth > 0) {
-        setDockRect(dock.getBoundingClientRect());
+        const rect = dock.getBoundingClientRect();
+        setDockRect((prev) => {
+          if (
+            prev &&
+            prev.top === rect.top &&
+            prev.left === rect.left &&
+            prev.width === rect.width &&
+            prev.height === rect.height
+          ) {
+            return prev;
+          }
+          return rect;
+        });
       } else {
-        setDockRect(null);
+        setDockRect((prev) => (prev === null ? null : null));
       }
       rafId = requestAnimationFrame(updateDock);
     };
@@ -189,7 +204,7 @@ export default function App() {
 
   const handleSelectTrack = useCallback((track: Track, contextQueue?: Track[]) => {
     player.playArbitraryTrack(track, contextQueue);
-    
+
     // Explicitly update recently played on user interaction
     setRecentlyPlayed((prev) => {
       const filtered = prev.filter((t) => t.id !== track.id);
@@ -923,18 +938,18 @@ export default function App() {
         {player.currentTrack && (
           <div
             ref={videoContainerRef}
-            className={`${
-              isPip || document.fullscreenElement || (showNowPlaying && dockRect)
-                ? "fixed z-50 overflow-hidden shadow-2xl bg-black"
-                : "fixed pointer-events-none overflow-hidden opacity-100 z-0"
-            } ${isPip || document.fullscreenElement ? "rounded-xl border border-zinc-700/50" : ""}`}
+            className={`${isPip || document.fullscreenElement || (showNowPlaying && dockRect)
+              ? "fixed z-50 overflow-hidden shadow-2xl bg-black"
+              : "fixed pointer-events-none overflow-hidden z-0"
+              } ${isPip || document.fullscreenElement ? "rounded-xl border border-zinc-700/50" : ""}`}
             style={{
-              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 0 ? `${dockRect.width}px` : '200px')),
-              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : (dockRect && dockRect.height > 0 ? `${dockRect.height}px` : '200px')),
+              width: isPip ? '320px' : (document.fullscreenElement ? '100vw' : (dockRect && dockRect.width > 200 ? `${dockRect.width}px` : '200px')),
+              height: isPip ? '180px' : (document.fullscreenElement ? '100vh' : (dockRect && dockRect.height > 200 ? `${dockRect.height}px` : '200px')),
               top: isPip ? 'auto' : (document.fullscreenElement ? '0' : (dockRect ? `${dockRect.top}px` : 'auto')),
-              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : (dockRect ? 'auto' : '0')),
-              left: isPip || document.fullscreenElement ? 'auto' : (dockRect ? `${dockRect.left}px` : (isPip ? 'auto' : '-9999px')),
+              bottom: isPip ? '100px' : (document.fullscreenElement ? '0' : (dockRect ? 'auto' : '0px')),
+              left: isPip || document.fullscreenElement ? 'auto' : (dockRect ? `${dockRect.left}px` : '0px'),
               right: isPip ? '16px' : (document.fullscreenElement ? '0' : 'auto'),
+              opacity: isPip || document.fullscreenElement || (showNowPlaying && dockRect) ? '1' : '0.001',
               borderRadius: isPip || document.fullscreenElement || !dockRect ? '12px' : '16px',
               pointerEvents: isPip || document.fullscreenElement ? 'auto' : 'none',
               transition: isPip || document.fullscreenElement ? 'all 0.3s ease-in-out' : 'none',
@@ -942,7 +957,7 @@ export default function App() {
           >
             <div className={`w-full h-full overflow-hidden ${isPip || document.fullscreenElement ? "scale-100" : "scale-[2.2] origin-center"}`}>
               <YouTube
-                videoId={player.currentTrack.youtubeId}
+                videoId={initialVideoIdRef.current || (player.currentTrack ? player.currentTrack.youtubeId : undefined)}
                 opts={{
                   width: "100%",
                   height: "100%",
@@ -952,7 +967,8 @@ export default function App() {
                     modestbranding: 1,
                     playsinline: 1,
                     rel: 0,
-                    vq: "hd1080",
+                    enablejsapi: 1,
+                    origin: typeof window !== "undefined" ? window.location.origin : "",
                   },
                 }}
                 className="w-full h-full"

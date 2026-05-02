@@ -7,7 +7,8 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 export function useBackgroundPlayback(
   isPlaying: boolean,
   currentTrackDuration: number | undefined,
-  onTrackEnd: () => void
+  onTrackEnd: () => void,
+  onBackgroundTick?: () => void
 ) {
 
   const lastCheckTimeRef = useRef<number>(Date.now());
@@ -31,16 +32,16 @@ export function useBackgroundPlayback(
       audioContextRef.current &&
       audioContextRef.current.state === "suspended"
     ) {
-      audioContextRef.current.resume().catch(() => {});
+      audioContextRef.current.resume().catch(() => { });
     }
 
     // Keep oscillator running to prevent browser from stopping playback
     if (audioContextRef.current && !oscillatorRef.current) {
       try {
         const osc = audioContextRef.current.createOscillator();
-        osc.frequency.value = 1; // 1 Hz, inaudible
+        osc.frequency.value = 100; // 100 Hz (inaudible with extremely low gain, but wakes up soundcard)
         const gain = audioContextRef.current.createGain();
-        gain.gain.value = 0.001; // Very low volume
+        gain.gain.value = 0.002; // Tiny non-zero gain to prevent sleep
         osc.connect(gain);
         gain.connect(audioContextRef.current.destination);
         osc.start();
@@ -70,38 +71,99 @@ export function useBackgroundPlayback(
     };
   }, []);
 
-  // Use setInterval for continuous playback tracking (works better in background than RAF)
+  // Use a Web Worker blob + setInterval fallback for highly accurate background ticking
+  // Use a Web Worker blob + setInterval fallback for highly accurate background ticking
+  // Track tab visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isTabActiveRef.current = !document.hidden;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Use a Web Worker blob + setInterval fallback
   useEffect(() => {
     if (!isPlaying || !currentTrackDuration) return;
 
-    const interval = setInterval(() => {
-      const now = Date.now();
+    let worker: Worker | null = null;
+    let mainInterval: ReturnType<typeof setInterval> | null = null;
+    let aggressiveInterval: ReturnType<typeof setInterval> | null = null; // NEW
 
-      // We don't accumulate elapsedSinceLastCheck anymore, we just check against the start time
+    try {
+      const blob = new Blob([
+        `let interval;
+         onmessage = function(e) {
+           if (e.data === 'start') {
+             interval = setInterval(() => postMessage('tick'), 1000);
+           } else if (e.data === 'stop') {
+             clearInterval(interval);
+           }
+         };`
+      ], { type: "application/javascript" });
+      worker = new Worker(URL.createObjectURL(blob));
+
+      worker.onmessage = () => {
+        const now = Date.now();
+        const totalElapsed = (now - playbackStartTimeRef.current) / 1000;
+        lastCheckTimeRef.current = now;
+
+        if (totalElapsed >= currentTrackDuration - 0.25) {
+          onTrackEnd();
+          playbackStartTimeRef.current = Date.now(); // Reset for next track
+        } else if (onBackgroundTick) {
+          onBackgroundTick();
+        }
+      };
+
+      worker.postMessage("start");
+    } catch (err) {
+      console.warn("Worker fallback:", err);
+    }
+
+    // Main interval (1 second)
+    mainInterval = setInterval(() => {
+      const now = Date.now();
       const totalElapsed = (now - playbackStartTimeRef.current) / 1000;
       lastCheckTimeRef.current = now;
 
-      // Check if track should have ended
-      // Add a small buffer
       if (totalElapsed >= currentTrackDuration - 0.25) {
-        console.log("Background advancing: track end reached", { totalElapsed, duration: currentTrackDuration });
         onTrackEnd();
-        clearInterval(interval);
+        playbackStartTimeRef.current = Date.now();
+      } else if (onBackgroundTick) {
+        onBackgroundTick();
+      }
+    }, 1000);
+
+    // 🔥 AGGRESSIVE INTERVAL (500ms) - Only for background tabs 🔥
+    aggressiveInterval = setInterval(() => {
+      if (document.hidden && onBackgroundTick) {
+        // console.log("Aggressive background tick");
+        onBackgroundTick();
       }
     }, 500);
 
-    return () => clearInterval(interval);
-  }, [isPlaying, currentTrackDuration, onTrackEnd]);
+    return () => {
+      if (worker) {
+        worker.postMessage("stop");
+        worker.terminate();
+      }
+      if (mainInterval) clearInterval(mainInterval);
+      if (aggressiveInterval) clearInterval(aggressiveInterval);
+    };
+  }, [isPlaying, currentTrackDuration, onTrackEnd, onBackgroundTick]);
 
   // Cleanup oscillator on unmount
   useEffect(() => {
     return () => {
       try {
         oscillatorRef.current?.stop();
-      } catch {}
+      } catch { }
       oscillatorRef.current = null;
 
-      audioContextRef.current?.close().catch(() => {});
+      audioContextRef.current?.close().catch(() => { });
     };
   }, []);
 
@@ -110,8 +172,8 @@ export function useBackgroundPlayback(
     playbackStartTimeRef.current = Date.now();
   }, []);
 
-  return useMemo(() => ({ 
-    resetPlaybackTimer, 
-    isTabActive: isTabActiveRef.current 
+  return useMemo(() => ({
+    resetPlaybackTimer,
+    isTabActive: isTabActiveRef.current
   }), [resetPlaybackTimer]);
 }
