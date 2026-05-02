@@ -160,8 +160,8 @@ export default function App() {
   // This covers manual selection, search selection, next/prev, and auto-play.
   useEffect(() => {
     if (player.currentTrack) {
-      const status = player.isPlaying ? "▶" : "⏸";
-      document.title = `${status} ${player.currentTrack.title} - Spotify x YouTube`;
+      // const status = player.isPlaying ? "▶" : "⏸";
+      document.title = `${player.currentTrack.title} - Spotify x YouTube`;
     } else {
       document.title = "Spotify Player – YouTube Music";
     }
