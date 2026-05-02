@@ -447,12 +447,33 @@ export const getOrFetchArtistChannelId = async (artistName: string): Promise<str
 export const getMostPopularArtistTrack = async (artistName: string): Promise<Track | undefined> => {
   if (!API_KEY || !artistName) return undefined;
   const trimmed = artistName.trim().toLowerCase();
+  const cacheKey = `popular:${trimmed}`;
 
   try {
-    if (inMemoryCache[`popular:${trimmed}`]) {
-      return inMemoryCache[`popular:${trimmed}`];
+    // 1. Check in memory first
+    if (inMemoryCache[cacheKey]) {
+      return inMemoryCache[cacheKey];
     }
 
+    // 2. Check Supabase cache
+    const { data: cached } = await supabase
+      .from("youtube_search_cache")
+      .select("results, created_at")
+      .eq("query", cacheKey)
+      .maybeSingle();
+
+    if (cached && cached.created_at) {
+      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
+      if (isFresh && cached.results) {
+        const track = Array.isArray(cached.results) ? cached.results[0] : cached.results;
+        if (track) {
+          inMemoryCache[cacheKey] = track;
+          return track as unknown as Track;
+        }
+      }
+    }
+
+    // 3. Not cached or expired, fetch from YouTube API
     const res = await axios.get(`${BASE_URL}/search`, {
       params: {
         part: "snippet",
@@ -479,7 +500,20 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
       const videoItem = videos.data?.items?.[0];
       if (videoItem) {
         const track = mapToTrack(videoItem, "Popular Releases");
-        inMemoryCache[`popular:${trimmed}`] = track;
+        inMemoryCache[cacheKey] = track;
+
+        // 4. Update Supabase search cache
+        await supabase
+          .from("youtube_search_cache")
+          .upsert(
+            {
+              query: cacheKey,
+              results: [track] as any,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "query" }
+          );
+
         return track;
       }
     }
