@@ -724,7 +724,7 @@ export default function MainContent(props: MainContentProps) {
         {/* Top Toast Notification */}
         {toastMessage && (
           <div style={{ zIndex: 2000 }} className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#1ed760] text-black text-sm font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 select-none pointer-events-none transition-all duration-300 transform translate-y-0 scale-100 backdrop-blur-md animate-in fade-in zoom-in-75">
-            <span>✨</span>
+            {/* <span>✨</span> */}
             <span>{toastMessage}</span>
           </div>
         )}
