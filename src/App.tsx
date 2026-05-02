@@ -50,7 +50,7 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const player = usePlayer([], user);
-  const { toggleFollowArtist, isFollowing } = useFollowedArtists(user);
+  const { followedArtists, toggleFollowArtist, isFollowing } = useFollowedArtists(user);
   const initialVideoIdRef = useRef<string | null>(null);
   if (player.currentTrack && !initialVideoIdRef.current) {
     initialVideoIdRef.current = player.currentTrack.youtubeId;
@@ -562,25 +562,26 @@ export default function App() {
     }
   }, [user]);
 
-
-
-
   useEffect(() => {
     player.onExhaustedRef.current = async (lastTrack) => {
       let related: Track[] = [];
 
-      if (lastTrack?.youtubeId) {
-        related = await searchYouTubeMusic("", {
-          mode: "recommend",
-          videoId: lastTrack.youtubeId
-        });
+      // Priority 1: Exact artist the user has just been listening to (lastTrack)
+      if (lastTrack?.artist) {
+        related = await searchYouTubeMusic(`${lastTrack.artist} top tracks`);
       }
 
+      // Priority 2: New release songs for that artist or general new releases
       if (related.length === 0) {
-        const query = lastTrack
-          ? `${lastTrack.artist} top tracks`
-          : "top trending music";
+        const query = lastTrack?.artist
+          ? `${lastTrack.artist} new releases`
+          : "new music releases";
         related = await searchYouTubeMusic(query);
+      }
+
+      // Priority 3: Fallback general new release songs
+      if (related.length === 0) {
+        related = await searchYouTubeMusic("new music releases");
       }
 
       if (related.length === 0) return;
@@ -600,7 +601,7 @@ export default function App() {
         return [...prev, ...fresh];
       });
     };
-  }, [player.selectTrack, handleTrackDetail]);
+  }, [player.selectTrack]);
 
   const activePlaylistId = activeView.startsWith("playlist:")
     ? activeView.replace("playlist:", "")
@@ -678,6 +679,8 @@ export default function App() {
               onSearchArtist={handleSearchArtist}
               showCreateModal={showCreateModal}
               setShowCreateModal={setShowCreateModal}
+              recentSearches={recentSearches}
+              recentSearchTracks={recentSearchTracks}
             />
 
             <aside

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, ListMusic, Trash2, Pencil } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2, Pencil, Users } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../public/images/spotifylogo.png';
@@ -71,6 +71,7 @@ export default function Sidebar({
           {[
             { icon: Home, label: "Home", view: "home" },
             { icon: Library, label: "Your Library", view: "library" },
+            { icon: Users, label: "Following", view: "following" },
           ].map(({ icon: Icon, label, view }) => (
             <button
               key={view}

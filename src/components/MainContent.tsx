@@ -58,6 +58,8 @@ interface MainContentProps {
   onSearchArtist?: (query: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
+  recentSearches?: string[];
+  recentSearchTracks?: Track[];
 }
 
 const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void }) => {
@@ -143,6 +145,8 @@ export default function MainContent(props: MainContentProps) {
     onSearchArtist,
     showCreateModal,
     setShowCreateModal,
+    recentSearches,
+    recentSearchTracks,
   } = props;
 
   const [selectedGenre, setSelectedGenre] = useState("All");
@@ -160,7 +164,7 @@ export default function MainContent(props: MainContentProps) {
   const shouldFetchTrending = activeView === "home";
 
   const trendingQuery =
-    selectedGenre !== "All" ? `${selectedGenre} music trending` : "Most trending music";
+    selectedGenre !== "All" ? `${selectedGenre} music trending` : "New singles as of 2026";
 
   const { data: apiTracks = [], isLoading: isTrendingLoading } = useSearchMusic(
     trendingQuery,
@@ -175,6 +179,56 @@ export default function MainContent(props: MainContentProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiTracks, shouldFetchTrending]);
+
+  const [suggestedSongs, setSuggestedSongs] = useState<Track[]>([]);
+  useEffect(() => {
+    let isMounted = true;
+    const isCompilation = (title: string) => {
+      const t = title.toLowerCase();
+      return (
+        t.includes("mix") ||
+        t.includes("playlist") ||
+        t.includes("compilation") ||
+        t.includes("full album") ||
+        t.includes("top songs of") ||
+        t.includes("most streamed") ||
+        t.includes("non-stop") ||
+        t.includes("nonstop") ||
+        t.includes("best of") ||
+        t.includes("top 10") ||
+        t.includes("top 5") ||
+        t.includes("megamix")
+      );
+    };
+
+    const fetchSuggestedSongs = async () => {
+      try {
+        let query = "Sabrina Carpenter songs";
+        if (recentSearchTracks && recentSearchTracks.length > 0) {
+          query = `${recentSearchTracks[0].artist} songs`;
+        } else if (recentSearches && recentSearches.length > 0) {
+          query = `${recentSearches[0]} songs`;
+        } else if (recentlyPlayed && recentlyPlayed.length > 0) {
+          query = `${recentlyPlayed[0].artist} songs`;
+        } else if (likedTracks && likedTracks.length > 0) {
+          query = `${likedTracks[0].artist} songs`;
+        } else if (apiTracks && apiTracks.length > 0) {
+          query = `${apiTracks[0].artist} songs`;
+        }
+
+        const results = await searchYouTubeMusic(query);
+        const filtered = (results || []).filter(t => !isCompilation(t.title));
+
+        if (isMounted && filtered.length > 0) {
+          setSuggestedSongs(filtered.slice(0, 15));
+        }
+      } catch (err) {
+        console.error("Error fetching suggested songs:", err);
+      }
+    };
+    fetchSuggestedSongs();
+    return () => { isMounted = false; };
+  }, [recentSearchTracks, recentSearches, recentlyPlayed, likedTracks, apiTracks]);
 
   // Fetch recommended tracks
   useEffect(() => {
@@ -268,6 +322,164 @@ export default function MainContent(props: MainContentProps) {
     );
   }
 
+  // Following Artists view
+  if (activeView === "following") {
+    const fallbackArtists = [
+      { name: "Sabrina Carpenter" },
+      { name: "Bruno Mars" },
+      { name: "Billie Eilish" },
+      { name: "The Weeknd" },
+      { name: "SZA" },
+      { name: "Dua Lipa" },
+      { name: "Post Malone" },
+      { name: "Taylor Swift" },
+      { name: "Drake" },
+      { name: "Rihanna" },
+      { name: "Justin Bieber" },
+      { name: "Ariana Grande" },
+      { name: "Lady Gaga" },
+      { name: "Coldplay" },
+      { name: "Ed Sheeran" },
+      { name: "Beyoncé" }
+    ];
+
+    const isFollowed = (artistName: string) => {
+      if (!artistName) return false;
+      const t = artistName.toLowerCase().trim();
+      const cleanT = t.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
+
+      return (followedArtists || []).some((fa) => {
+        if (!fa.name) return false;
+        const fan = fa.name.toLowerCase().trim();
+        const cleanFan = fan.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
+
+        return (
+          cleanT === cleanFan ||
+          cleanT.includes(cleanFan) ||
+          cleanFan.includes(cleanT)
+        );
+      });
+    };
+
+    const suggested: any[] = [];
+    const seenSuggested = new Set<string>();
+
+    fallbackArtists.forEach((fa) => {
+      if (suggested.length >= 15) return;
+      const lower = fa.name.toLowerCase().trim();
+      if (!isFollowed(fa.name) && !seenSuggested.has(lower)) {
+        seenSuggested.add(lower);
+        suggested.push(fa);
+      }
+    });
+
+    return (
+      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-zinc-900 to-zinc-950 p-6 sm:p-8 select-none">
+        <div className="pb-24 max-w-7xl mx-auto space-y-12">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white mb-2">Following</h1>
+            <p className="text-sm text-zinc-400">Manage the artists you follow and discover new ones</p>
+          </div>
+
+          {/* Following Section */}
+          <div className="space-y-6">
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+              Followed Artists
+              <span className="text-sm font-normal text-zinc-500 bg-zinc-800/80 px-2.5 py-0.5 rounded-full">
+                {followedArtists.length}
+              </span>
+            </h2>
+
+            {followedArtists.length === 0 ? (
+              <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-8 text-center max-w-md">
+                <p className="text-zinc-400 font-medium mb-1">Not following any artists yet</p>
+                <p className="text-xs text-zinc-500">Discover and follow your favorite artists to build your network.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                {followedArtists.map((fa) => (
+                  <div
+                    key={fa.id}
+                    onClick={() => {
+                      setSelectedArtist({
+                        name: fa.name,
+                        thumbnail: fa.thumbnail,
+                        youtubeArtistUrl: fa.youtubeArtistUrl,
+                      });
+                      setActiveView("artist-detail");
+                    }}
+                    className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1"
+                  >
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
+                      {fa.thumbnail ? (
+                        <img
+                          src={fa.thumbnail}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          alt={fa.name}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
+                          {fa.name[0]}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-full">
+                      <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
+                        {fa.name}
+                      </p>
+                      <p className="text-xs text-zinc-500 font-medium truncate">Artist</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Suggested Artists Section */}
+          <div className="space-y-6">
+            <h2 className="text-xl sm:text-2xl font-black text-white">Suggested artists for you</h2>
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+              {suggested.map((artist, idx) => (
+                <div
+                  key={`sug-${idx}`}
+                  onClick={() => {
+                    setSelectedArtist({
+                      name: artist.name,
+                    });
+                    setActiveView("artist-detail");
+                  }}
+                  className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1"
+                >
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
+                    {artist.thumbnail ? (
+                      <img
+                        src={artist.thumbnail}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        alt={artist.name}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
+                        {artist.name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-full">
+                    <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
+                      {artist.name}
+                    </p>
+                    <p className="text-xs text-zinc-500 font-medium truncate">Suggested Artist</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   // Library
   if (isLibraryView) {
     return (
@@ -288,27 +500,33 @@ export default function MainContent(props: MainContentProps) {
     );
   }
 
-  // Combine unique artists from followed artists, recently played, liked, and apiTracks
+  // Combine unique artists from recently played, liked, and apiTracks (excluding followed ones)
   const suggestedArtists = (() => {
     const uniqueArtists: { name: string; thumbnail?: string; youtubeArtistUrl?: string; track?: Track }[] = [];
     const seenNames = new Set<string>();
 
-    // 1. Add followed artists
-    followedArtists.forEach((fa) => {
-      if (fa.name && !seenNames.has(fa.name)) {
-        seenNames.add(fa.name);
-        uniqueArtists.push({
-          name: fa.name,
-          thumbnail: fa.thumbnail,
-          youtubeArtistUrl: fa.youtubeArtistUrl,
-        });
-      }
-    });
+    const isFollowed = (artistName: string) => {
+      if (!artistName) return false;
+      const t = artistName.toLowerCase().trim();
+      const cleanT = t.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
 
-    // 2. Add from recently played
+      return (followedArtists || []).some((fa) => {
+        if (!fa.name) return false;
+        const fan = fa.name.toLowerCase().trim();
+        const cleanFan = fan.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
+
+        return (
+          cleanT === cleanFan ||
+          cleanT.includes(cleanFan) ||
+          cleanFan.includes(cleanT)
+        );
+      });
+    };
+
+    // 1. Add from recently played
     recentlyPlayed.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist)) {
-        seenNames.add(t.artist);
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
         uniqueArtists.push({
           name: t.artist,
           thumbnail: t.thumbnail,
@@ -318,10 +536,10 @@ export default function MainContent(props: MainContentProps) {
       }
     });
 
-    // 3. Add from liked
+    // 2. Add from liked
     likedTracks.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist)) {
-        seenNames.add(t.artist);
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
         uniqueArtists.push({
           name: t.artist,
           thumbnail: t.thumbnail,
@@ -331,10 +549,10 @@ export default function MainContent(props: MainContentProps) {
       }
     });
 
-    // 4. Add from top trending / api tracks
+    // 3. Add from top trending / api tracks
     apiTracks.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist)) {
-        seenNames.add(t.artist);
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
         uniqueArtists.push({
           name: t.artist,
           thumbnail: t.thumbnail,
@@ -344,7 +562,36 @@ export default function MainContent(props: MainContentProps) {
       }
     });
 
-    return uniqueArtists.slice(0, 10);
+    // 4. Fill up to 15 using top famous artists
+    const fallbackArtists = [
+      { name: "Sabrina Carpenter" },
+      { name: "Bruno Mars" },
+      { name: "Billie Eilish" },
+      { name: "The Weeknd" },
+      { name: "SZA" },
+      { name: "Dua Lipa" },
+      { name: "Post Malone" },
+      { name: "Taylor Swift" },
+      { name: "Drake" },
+      { name: "Rihanna" },
+      { name: "Justin Bieber" },
+      { name: "Ariana Grande" },
+      { name: "Lady Gaga" },
+      { name: "Coldplay" },
+      { name: "Ed Sheeran" },
+      { name: "Beyoncé" }
+    ];
+
+    fallbackArtists.forEach((fa) => {
+      if (uniqueArtists.length >= 15) return;
+      const lower = fa.name.toLowerCase().trim();
+      if (!isFollowed(fa.name) && !seenNames.has(lower)) {
+        seenNames.add(lower);
+        uniqueArtists.push({ name: fa.name });
+      }
+    });
+
+    return uniqueArtists.slice(0, 15);
   })();
 
   // Determine tracks to display for list views (for desktop/non-home views)
@@ -372,319 +619,318 @@ export default function MainContent(props: MainContentProps) {
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto">
       <div className="pb-32">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50 z-1000">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              {(isPlaylistView || activeView === "liked") && (
-                <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
-                  {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-4xl font-black text-white truncate mb-2">{pageTitle}</h1>
-                {isPlaylistView && activePlaylist?.description && (
-                  <p className="text-sm text-zinc-400 mb-2 line-clamp-2">{activePlaylist.description}</p>
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50 z-1000">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {(isPlaylistView || activeView === "liked") && (
+                  <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
+                    {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
+                  </span>
                 )}
-                <div className="flex items-center gap-2">
-                  <p className="text-xs sm:text-sm text-zinc-300 font-bold mt-0.5 truncate flex items-center gap-1.5">
-                    {user?.user_metadata?.full_name || "User"} • {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl sm:text-4xl font-black text-white truncate mb-2">{pageTitle}</h1>
+                  {isPlaylistView && activePlaylist?.description && (
+                    <p className="text-sm text-zinc-400 mb-2 line-clamp-2">{activePlaylist.description}</p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs sm:text-sm text-zinc-300 font-bold mt-0.5 truncate flex items-center gap-1.5">
+                      {user?.user_metadata?.full_name || "User"} • {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
+                {(isPlaylistView || activeView === "liked") && displayTracks.length > 0 && (
+                  <div className="flex items-center gap-1 sm:gap-2 mr-2">
+                    {/* Play Button */}
+                    <Button
+                      onClick={() => onSelect(displayTracks[0], displayTracks)}
+                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 border-none"
+                    >
+                      <Play size={20} fill="black" className="ml-0.5" />
+                    </Button>
+
+                    {/* Shuffle Button */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleShuffle}
+                            className={`rounded-full transition-colors ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            <Shuffle size={20} />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
+                    </Tooltip>
+
+                    {/* Repeat Button */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleRepeat}
+                            className={`rounded-full transition-colors relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            {repeatMode === "one" ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                            {repeatMode !== "none" && (
+                              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
+                            )}
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>
+                        {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                {isPlaylistView && activePlaylist && (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDeletePlaylist(activePlaylist)}
+                          className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full h-10 w-10"
+                        >
+                          <Trash2 size={20} />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>Delete Playlist</TooltipContent>
+                  </Tooltip>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={onOpenSearch}
+                  className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
+                >
+                  <Search size={16} />
+                  <span className="hidden sm:inline">Search tracks, artists…</span>
+                  <span className="sm:hidden">Search</span>
+                  <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs">
+                    ⌘K
+                  </kbd>
+                </Button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
-              {(isPlaylistView || activeView === "liked") && displayTracks.length > 0 && (
-                <div className="flex items-center gap-1 sm:gap-2 mr-2">
-                  {/* Play Button */}
-                  <Button
-                    onClick={() => onSelect(displayTracks[0], displayTracks)}
-                    className="bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 border-none"
+            {/* Genre filters (only on Home) */}
+            {activeView === "home" && (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {GENRES.map((g) => (
+                  <Badge
+                    key={g}
+                    variant={selectedGenre === g ? "default" : "secondary"}
+                    onClick={() => setSelectedGenre(g)}
+                    className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors h-auto ${selectedGenre === g
+                      ? "bg-white text-black hover:bg-white/90"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                      }`}
                   >
-                    <Play size={20} fill="black" className="ml-0.5" />
-                  </Button>
-
-                  {/* Shuffle Button */}
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={onToggleShuffle}
-                          className={`rounded-full transition-colors ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
-                        >
-                          <Shuffle size={20} />
-                        </Button>
-                      }
-                    />
-                    <TooltipContent>{isShuffle ? "Disable shuffle" : "Enable shuffle"}</TooltipContent>
-                  </Tooltip>
-
-                  {/* Repeat Button */}
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={onToggleRepeat}
-                          className={`rounded-full transition-colors relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
-                        >
-                          {repeatMode === "one" ? <Repeat1 size={20} /> : <Repeat size={20} />}
-                          {repeatMode !== "none" && (
-                            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#1DB954]" />
-                          )}
-                        </Button>
-                      }
-                    />
-                    <TooltipContent>
-                      {repeatMode === "none" ? "Enable repeat" : repeatMode === "all" ? "Enable repeat one" : "Disable repeat"}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
-              {isPlaylistView && activePlaylist && (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDeletePlaylist(activePlaylist)}
-                        className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full h-10 w-10"
-                      >
-                        <Trash2 size={20} />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>Delete Playlist</TooltipContent>
-                </Tooltip>
-              )}
-
-              <Button
-                variant="outline"
-                onClick={onOpenSearch}
-                className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
-              >
-                <Search size={16} />
-                <span className="hidden sm:inline">Search tracks, artists…</span>
-                <span className="sm:hidden">Search</span>
-                <kbd className="hidden lg:flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs">
-                  ⌘K
-                </kbd>
-              </Button>
-            </div>
+                    {g}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Genre filters (only on Home) */}
-          {activeView === "home" && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {GENRES.map((g) => (
-                <Badge
-                  key={g}
-                  variant={selectedGenre === g ? "default" : "secondary"}
-                  onClick={() => setSelectedGenre(g)}
-                  className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors h-auto ${selectedGenre === g
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                    }`}
-                >
-                  {g}
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
 
 
 
-      {/* Track list */}
-      <div className="px-4 sm:px-8 py-4">
-        {isTrendingLoading ? (
-          <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
-            {/* <Loader2 className="animate-spin mb-4" size={32} /> */}
-            {/* <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p> */}
-            <MusicLoader />
+        {/* Track list */}
+        <div className="px-4 sm:px-8 py-4">
+          {isTrendingLoading ? (
+            <div className="text-center text-zinc-600 py-20 flex flex-col items-center justify-center">
+              {/* <Loader2 className="animate-spin mb-4" size={32} /> */}
+              {/* <p className="text-base sm:text-lg font-semibold text-zinc-500">Loading tracks...</p> */}
+              <MusicLoader />
 
-          </div>
-        ) : displayTracks.length === 0 ? (
-          <div className="text-center text-zinc-600 py-20">
-            {/* <MusicLoader /> */}
-            <p className="text-base sm:text-lg font-semibold text-zinc-500">No tracks found</p>
-          </div>
-        ) : (
-          activeView === "home" ? (
-            <div className="space-y-6 sm:space-y-8 pb-8">
-              {/* Top Grid - Recent Playlists / Liked */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                {/* Liked Songs */}
-                <div
-                  onClick={() => setActiveView("liked")}
-                  className="group bg-zinc-900 hover:bg-zinc-800 transition-all duration-300 flex items-center rounded-xl overflow-hidden cursor-pointer h-16 sm:h-18 shadow-sm hover:shadow-2xl hover:-translate-y-1 relative"
-                >
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 bg-gradient-to-br from-indigo-600 to-purple-800 flex items-center justify-center shrink-0 shadow-md group-hover:shadow-xl transition-shadow rounded-l-xl">
-                    <Heart size={24} className="text-white fill-white" />
-                  </div>
-                  <div className="flex-1 min-w-0 px-3 sm:px-4">
-                    <span className="font-bold text-white text-sm sm:text-base truncate">Liked Songs</span>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (likedTracks.length > 0) onSelect(likedTracks[0], likedTracks);
-                    }}
-                    className="absolute right-3 w-10 h-10 sm:w-11 sm:h-11 bg-[#1ed760] rounded-full flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 shadow-2xl hover:scale-105 transition-all duration-200 z-20"
-                  >
-                    <Play size={20} className="text-black ml-0.5 fill-black" />
-                  </button>
-                </div>
-
-                {/* Playlists */}
-                {playlists.slice(0, 5).map(pl => (
+            </div>
+          ) : displayTracks.length === 0 ? (
+            <div className="text-center text-zinc-600 py-20">
+              {/* <MusicLoader /> */}
+              <p className="text-base sm:text-lg font-semibold text-zinc-500">No tracks found</p>
+            </div>
+          ) : (
+            activeView === "home" ? (
+              <div className="space-y-6 sm:space-y-8 pb-8">
+                {/* Top Grid - Recent Playlists / Liked */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {/* Liked Songs */}
                   <div
-                    key={pl.id}
-                    onClick={() => setActiveView(`playlist:${pl.id}`)}
+                    onClick={() => setActiveView("liked")}
                     className="group bg-zinc-900 hover:bg-zinc-800 transition-all duration-300 flex items-center rounded-xl overflow-hidden cursor-pointer h-16 sm:h-18 shadow-sm hover:shadow-2xl hover:-translate-y-1 relative"
                   >
-                    <div className="relative w-16 h-16 sm:w-18 sm:h-18 shrink-0 shadow-md group-hover:shadow-xl transition-shadow overflow-hidden rounded-l-xl">
-                      {pl.tracks[0]?.thumbnail ? (
-                        <img
-                          src={pl.tracks[0].thumbnail}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          alt={pl.name}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                          <ListMusic size={24} className="text-zinc-500" />
-                        </div>
-                      )}
-                      {/* Subtle inner frame */}
-                      <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-l-xl pointer-events-none" />
+                    <div className="w-16 h-16 sm:w-18 sm:h-18 bg-gradient-to-br from-indigo-600 to-purple-800 flex items-center justify-center shrink-0 shadow-md group-hover:shadow-xl transition-shadow rounded-l-xl">
+                      <Heart size={24} className="text-white fill-white" />
                     </div>
-
                     <div className="flex-1 min-w-0 px-3 sm:px-4">
-                      <span className="font-bold text-white text-sm sm:text-base truncate">{pl.name}</span>
+                      <span className="font-bold text-white text-sm sm:text-base truncate">Liked Songs</span>
                     </div>
 
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (pl.tracks.length > 0) onSelect(pl.tracks[0], pl.tracks);
+                        if (likedTracks.length > 0) onSelect(likedTracks[0], likedTracks);
                       }}
                       className="absolute right-3 w-10 h-10 sm:w-11 sm:h-11 bg-[#1ed760] rounded-full flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 shadow-2xl hover:scale-105 transition-all duration-200 z-20"
                     >
                       <Play size={20} className="text-black ml-0.5 fill-black" />
                     </button>
                   </div>
-                ))}
-              </div>
 
-              {/* Recommended Stations */}
-              <HorizontalScrollSection
-                title="Recommended Stations"
-              // onShowAll={() => console.log("Show all recommended")}
-              >
-                {apiTracks.slice(0, 15).map(track => (
-                  <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                    <HomeCard
-                      track={track}
-                      onSelect={(t) => onSelect(t, apiTracks)}
-                      title={track.artist}
-                      subtitle={`With ${track.title} and more`}
-                    />
-                  </div>
-                ))}
-              </HorizontalScrollSection>
+                  {/* Playlists */}
+                  {playlists.slice(0, 5).map(pl => (
+                    <div
+                      key={pl.id}
+                      onClick={() => setActiveView(`playlist:${pl.id}`)}
+                      className="group bg-zinc-900 hover:bg-zinc-800 transition-all duration-300 flex items-center rounded-xl overflow-hidden cursor-pointer h-16 sm:h-18 shadow-sm hover:shadow-2xl hover:-translate-y-1 relative"
+                    >
+                      <div className="relative w-16 h-16 sm:w-18 sm:h-18 shrink-0 shadow-md group-hover:shadow-xl transition-shadow overflow-hidden rounded-l-xl">
+                        {pl.tracks[0]?.thumbnail ? (
+                          <img
+                            src={pl.tracks[0].thumbnail}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            alt={pl.name}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                            <ListMusic size={24} className="text-zinc-500" />
+                          </div>
+                        )}
+                        {/* Subtle inner frame */}
+                        <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-l-xl pointer-events-none" />
+                      </div>
 
-              {recentlyPlayed.length > 0 && (
+                      <div className="flex-1 min-w-0 px-3 sm:px-4">
+                        <span className="font-bold text-white text-sm sm:text-base truncate">{pl.name}</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (pl.tracks.length > 0) onSelect(pl.tracks[0], pl.tracks);
+                        }}
+                        className="absolute right-3 w-10 h-10 sm:w-11 sm:h-11 bg-[#1ed760] rounded-full flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 shadow-2xl hover:scale-105 transition-all duration-200 z-20"
+                      >
+                        <Play size={20} className="text-black ml-0.5 fill-black" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Recommended Stations */}
                 <HorizontalScrollSection
-                  title="Recently played"
-                // onShowAll={() => console.log("Show all recent")}
+                  title="Trending Songs"
+                // onShowAll={() => console.log("Show all recommended")}
                 >
-                  {recentlyPlayed.map(track => (
-                    <div key={`recent-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                  {apiTracks.slice(0, 15).map(track => (
+                    <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
                       <HomeCard
                         track={track}
-                        onSelect={(t) => onSelect(t, recentlyPlayed)}
-                        title={track.title}
-                        subtitle={`${track.artist}`}
+                        onSelect={(t) => onSelect(t, apiTracks)}
+                        title={track.artist}
+                        subtitle={`With ${track.title} and more`}
                       />
                     </div>
                   ))}
                 </HorizontalScrollSection>
-              )}
 
-              {/* Recommended artists */}
-              {suggestedArtists.length > 0 && (
-                <HorizontalScrollSection title="Recommended artists">
-                  {suggestedArtists.map((artist, idx) => (
-                    <div key={`artist-rec-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                      <ArtistCard
-                        artist={artist}
-                        onSelect={() => {
-                          setSelectedArtist(artist);
-                          setActiveView("artist-detail");
-                        }}
-                      />
-                    </div>
-                  ))}
-                </HorizontalScrollSection>
-              )}
+                {recentlyPlayed.length > 0 && (
+                  <HorizontalScrollSection
+                    title="Recently played"
+                  // onShowAll={() => console.log("Show all recent")}
+                  >
+                    {recentlyPlayed.map(track => (
+                      <div key={`recent-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <HomeCard
+                          track={track}
+                          onSelect={(t) => onSelect(t, recentlyPlayed)}
+                          title={track.title}
+                          subtitle={`${track.artist}`}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
 
-              {/* Popular radio */}
-              <HorizontalScrollSection
-                title="Popular radio"
-              // onShowAll={() => console.log("Show all radio")}
-              >
-                {[...apiTracks].reverse().slice(0, 15).map(track => (
-                  <div key={`pop-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                    <HomeCard
-                      track={track}
-                      onSelect={(t) => onSelect(t, [...apiTracks].reverse())}
-                      title={track.artist}
-                      subtitle={`Radio based on ${track.artist}`}
-                    />
-                  </div>
-                ))}
-              </HorizontalScrollSection>
+                {/* Recommended artists */}
+                {suggestedArtists.length > 0 && (
+                  <HorizontalScrollSection title="Recommended artists">
+                    {suggestedArtists.map((artist, idx) => (
+                      <div key={`artist-rec-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <ArtistCard
+                          artist={artist}
+                          onSelect={() => {
+                            setSelectedArtist(artist);
+                            setActiveView("artist-detail");
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
 
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
-                <span className="w-8 text-center">#</span>
-                <span>Title</span>
-                <span className="flex items-center gap-1"><Clock size={13} /></span>
-                <span className="w-20 text-center">Actions</span>
+                {/* Suggested songs */}
+                {suggestedSongs.length > 0 && (
+                  <HorizontalScrollSection title="Suggested songs">
+                    {suggestedSongs.map(track => (
+                      <div key={`suggested-song-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <HomeCard
+                          track={track}
+                          onSelect={(t) => onSelect(t, suggestedSongs)}
+                          title={track.title}
+                          subtitle={track.artist}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
+
               </div>
-              {displayTracks.map((track, idx) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  idx={idx}
-                  isCurrent={currentTrack?.id === track.id}
-                  isTrackPlaying={currentTrack?.id === track.id && isPlaying}
-                  isLiked={liked.has(track.id)}
-                  onSelect={(t) => onSelect(t, displayTracks)}
-                  onToggleLike={onToggleLike}
-                  playlists={playlists}
-                  onAddToPlaylist={onAddToPlaylist}
-                  isInPlaylist={isPlaylistView}
-                  activePlaylistId={isPlaylistView ? activeView.replace("playlist:", "") : null}
-                  onRemoveFromPlaylist={onRemoveFromPlaylist}
-                  onTrackDetail={onTrackDetail}
-                />
-              ))}
-            </div>
-          )
-        )}
-      </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
+                  <span className="w-8 text-center">#</span>
+                  <span>Title</span>
+                  <span className="flex items-center gap-1"><Clock size={13} /></span>
+                  <span className="w-20 text-center">Actions</span>
+                </div>
+                {displayTracks.map((track, idx) => (
+                  <TrackRow
+                    key={track.id}
+                    track={track}
+                    idx={idx}
+                    isCurrent={currentTrack?.id === track.id}
+                    isTrackPlaying={currentTrack?.id === track.id && isPlaying}
+                    isLiked={liked.has(track.id)}
+                    onSelect={(t) => onSelect(t, displayTracks)}
+                    onToggleLike={onToggleLike}
+                    playlists={playlists}
+                    onAddToPlaylist={onAddToPlaylist}
+                    isInPlaylist={isPlaylistView}
+                    activePlaylistId={isPlaylistView ? activeView.replace("playlist:", "") : null}
+                    onRemoveFromPlaylist={onRemoveFromPlaylist}
+                    onTrackDetail={onTrackDetail}
+                  />
+                ))}
+              </div>
+            )
+          )}
+        </div>
       </div>
     </main>
   );
