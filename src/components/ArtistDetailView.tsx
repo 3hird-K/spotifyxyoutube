@@ -4,7 +4,7 @@ import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { Button } from "@/components/ui/button";
 import { TrackRow } from "./TrackRow";
-import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
+import { searchYouTubeMusic, getArtistDetails, getOrFetchArtistChannelId } from "../utils/youtube";
 import axios from "axios";
 
 export function ArtistDetailView({
@@ -63,23 +63,7 @@ export function ArtistDetailView({
           let channelId = extractChannelId(artist.youtubeArtistUrl) || extractChannelId(firstTrack?.youtubeArtistUrl);
 
           if (!channelId) {
-            try {
-              const searchChannel = await axios.get(`https://www.googleapis.com/youtube/v3/search`, {
-                params: {
-                  part: "snippet",
-                  maxResults: 1,
-                  q: artist.name,
-                  type: "channel",
-                  key: import.meta.env.VITE_YOUTUBE_API_KEY,
-                }
-              });
-              const channelItem = searchChannel.data?.items?.[0];
-              if (channelItem?.id?.channelId) {
-                channelId = channelItem.id.channelId;
-              }
-            } catch (e) {
-              console.error("Error direct searching channel ID:", e);
-            }
+            channelId = await getOrFetchArtistChannelId(artist.name);
           }
 
           if (channelId && isMounted) {

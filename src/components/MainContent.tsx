@@ -261,33 +261,47 @@ export default function MainContent(props: MainContentProps) {
 
     const fetchSuggestedSongs = async () => {
       try {
-        let query = "Sabrina Carpenter songs";
-        if (likedTracks && likedTracks.length > 0) {
-          const randomLiked = likedTracks[Math.floor(Math.random() * likedTracks.length)];
-          query = `${randomLiked.artist} ${randomLiked.title} music`;
-        } else if (recentSearchTracks && recentSearchTracks.length > 0) {
-          query = `${recentSearchTracks[0].artist} ${recentSearchTracks[0].title} music`;
-        } else if (recentSearches && recentSearches.length > 0) {
-          query = `${recentSearches[0]} music`;
-        } else if (recentlyPlayed && recentlyPlayed.length > 0) {
-          query = `${recentlyPlayed[0].artist} songs`;
-        } else if (apiTracks && apiTracks.length > 0) {
-          query = `${apiTracks[0].artist} songs`;
+        const artistsToFetch: string[] = [];
+        if (followedArtists && followedArtists.length > 0) {
+          followedArtists.forEach(fa => {
+            if (fa.name && !artistsToFetch.includes(fa.name)) {
+              artistsToFetch.push(fa.name);
+            }
+          });
         }
 
-        let results = await searchYouTubeMusic(query);
-        let filtered = (results || []).filter(t => !isCompilation(t.title));
+        const fallbackArtists = [
+          "Sabrina Carpenter", "Bruno Mars", "Billie Eilish", "The Weeknd",
+          "SZA", "Dua Lipa", "Post Malone", "Taylor Swift", "Drake",
+          "Rihanna", "Justin Bieber", "Ariana Grande", "Lady Gaga", "Coldplay",
+          "Ed Sheeran", "Beyoncé"
+        ];
+
+        for (const name of fallbackArtists) {
+          if (artistsToFetch.length >= 15) break;
+          if (!artistsToFetch.includes(name)) {
+            artistsToFetch.push(name);
+          }
+        }
 
         const uniqueFiltered: Track[] = [];
         const seenTitles = new Set<string>();
         const seenIds = new Set<string>();
 
-        for (const t of filtered) {
-          const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
-          if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
-            seenTitles.add(lowerTitle);
-            seenIds.add(t.id);
-            uniqueFiltered.push(t);
+        for (const artistName of artistsToFetch) {
+          if (uniqueFiltered.length >= 15) break;
+
+          const results = await searchYouTubeMusic(`${artistName} official music`);
+          const filtered = (results || []).filter(t => !isCompilation(t.title));
+
+          for (const t of filtered) {
+            const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
+            if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
+              seenTitles.add(lowerTitle);
+              seenIds.add(t.id);
+              uniqueFiltered.push(t);
+              break; // take exactly 1 unique song per artist
+            }
           }
         }
 
@@ -314,7 +328,7 @@ export default function MainContent(props: MainContentProps) {
     };
     fetchSuggestedSongs();
     return () => { isMounted = false; };
-  }, [recentSearchTracks, recentSearches, recentlyPlayed, likedTracks, apiTracks]);
+  }, [recentSearchTracks, recentSearches, recentlyPlayed, likedTracks, apiTracks, followedArtists]);
 
   // Fetch recommended tracks
   useEffect(() => {

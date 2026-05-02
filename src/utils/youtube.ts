@@ -5,6 +5,8 @@ import { Track } from "../data/tracks";
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
+const inMemoryCache: Record<string, any> = {};
+
 /* -----------------------------
    UTIL: ISO duration parser
 ------------------------------ */
@@ -61,6 +63,10 @@ export const searchYouTubeMusic = async (
     options?.mode === "recommend"
       ? `rec:${options.videoId}`
       : trimmedQuery;
+
+  if (inMemoryCache[cacheKey]) {
+    return inMemoryCache[cacheKey];
+  }
 
   try {
     /* =========================
@@ -212,6 +218,7 @@ export const searchYouTubeMusic = async (
        4. SAVE TO CACHE
     ========================= */
     if (results.length > 0) {
+      inMemoryCache[cacheKey] = results;
       try {
         await supabase
           .from("youtube_search_cache")
@@ -366,4 +373,73 @@ export const searchYouTubeArtistThumbnail = async (artistName: string): Promise<
     console.error("Error searching channel:", err);
   }
   return undefined;
+};
+
+export const getOrFetchArtistChannelId = async (artistName: string): Promise<string | null> => {
+  if (!API_KEY || !artistName) return null;
+  const trimmed = artistName.trim().toLowerCase();
+
+  try {
+    // 1. Check in-memory cache
+    if (inMemoryCache[`channel:${trimmed}`]) {
+      return inMemoryCache[`channel:${trimmed}`];
+    }
+
+    // 2. Check Supabase cache
+    const { data: cached } = await supabase
+      .from("youtube_artist_cache")
+      .select("channel_id")
+      .eq("artist_name", trimmed)
+      .maybeSingle();
+
+    if (cached && cached.channel_id && !cached.channel_id.startsWith("id:")) {
+      inMemoryCache[`channel:${trimmed}`] = cached.channel_id;
+      return cached.channel_id;
+    }
+
+    // 3. Not cached, fetch from YouTube API
+    const res = await axios.get(`${BASE_URL}/search`, {
+      params: {
+        part: "snippet",
+        maxResults: 1,
+        q: `${artistName} Official Channel`,
+        type: "channel",
+        key: API_KEY,
+      },
+    });
+
+    const item = res.data?.items?.[0];
+    if (item && item.id?.channelId) {
+      const channelId = item.id.channelId;
+
+      // 4. Update Supabase cache
+      const { data: existing } = await supabase
+        .from("youtube_artist_cache")
+        .select("id")
+        .eq("artist_name", trimmed)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("youtube_artist_cache").update({
+          channel_id: channelId,
+          thumbnail_url: item.snippet?.thumbnails?.high?.url,
+          created_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("youtube_artist_cache").insert({
+          artist_name: trimmed,
+          channel_id: channelId,
+          thumbnail_url: item.snippet?.thumbnails?.high?.url,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      inMemoryCache[`channel:${trimmed}`] = channelId;
+      return channelId;
+    }
+  } catch (err) {
+    console.error("Error fetching channel ID:", err);
+  }
+
+  return null;
 };
