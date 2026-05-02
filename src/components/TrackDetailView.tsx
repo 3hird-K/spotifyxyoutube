@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Play, Pause, Heart, Plus, ListPlus, Check, Loader2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TrackRow } from "./TrackRow";
+import { getMostPopularArtistTrack } from "../utils/youtube";
 
 export function TrackDetailView({
   track,
@@ -44,6 +46,29 @@ export function TrackDetailView({
   isFollowingArtist?: (name: string) => boolean;
   onToggleFollowArtist?: (artist: { name: string; youtubeArtistUrl?: string; thumbnail?: string }) => void;
 }) {
+  const [popularTrack, setPopularTrack] = useState<Track | undefined>(undefined);
+  const [isLoadingPopular, setIsLoadingPopular] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const fetchPopular = async () => {
+      if (!track.artist) return;
+      try {
+        setIsLoadingPopular(true);
+        const pt = await getMostPopularArtistTrack(track.artist);
+        if (active) {
+          setPopularTrack(pt);
+        }
+      } catch (e) {
+        console.error("Error loading popular track:", e);
+      } finally {
+        if (active) setIsLoadingPopular(false);
+      }
+    };
+    fetchPopular();
+    return () => { active = false; };
+  }, [track.artist]);
+
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8">
       <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start sm:items-end mb-8 sm:mb-10">
@@ -154,6 +179,34 @@ export function TrackDetailView({
       </div>
 
       <Separator className="bg-zinc-800 mb-6 sm:mb-8" />
+
+      {isLoadingPopular ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="animate-spin text-zinc-700" size={24} />
+        </div>
+      ) : popularTrack ? (
+        <div className="mb-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">Popular from this Artist</h2>
+          <div className="space-y-1">
+            <TrackRow
+              track={popularTrack}
+              idx={0}
+              isCurrent={false}
+              isTrackPlaying={false}
+              isLiked={liked.has(popularTrack.id)}
+              onSelect={(t) => onSelect(t, [popularTrack])}
+              onToggleLike={onToggleLike}
+              playlists={playlists}
+              onAddToPlaylist={onAddToPlaylist}
+              isInPlaylist={false}
+              activePlaylistId={null}
+              onRemoveFromPlaylist={() => { }}
+              onTrackDetail={onTrackDetail}
+            />
+          </div>
+          <Separator className="bg-zinc-800 my-8 sm:my-10" />
+        </div>
+      ) : null}
 
       <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">Recommended for you</h2>
       {isLoadingRecommended ? (

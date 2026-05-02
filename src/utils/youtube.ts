@@ -443,3 +443,49 @@ export const getOrFetchArtistChannelId = async (artistName: string): Promise<str
 
   return null;
 };
+
+export const getMostPopularArtistTrack = async (artistName: string): Promise<Track | undefined> => {
+  if (!API_KEY || !artistName) return undefined;
+  const trimmed = artistName.trim().toLowerCase();
+
+  try {
+    if (inMemoryCache[`popular:${trimmed}`]) {
+      return inMemoryCache[`popular:${trimmed}`];
+    }
+
+    const res = await axios.get(`${BASE_URL}/search`, {
+      params: {
+        part: "snippet",
+        maxResults: 1,
+        q: `${artistName} official music video`,
+        type: "video",
+        order: "viewCount",
+        videoCategoryId: "10",
+        key: API_KEY,
+      },
+    });
+
+    const item = res.data?.items?.[0];
+    if (item && item.id?.videoId) {
+      const videos = await axios.get(`${BASE_URL}/videos`, {
+        params: {
+          part: "snippet,contentDetails",
+          id: item.id.videoId,
+          key: API_KEY,
+          fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
+        },
+      });
+
+      const videoItem = videos.data?.items?.[0];
+      if (videoItem) {
+        const track = mapToTrack(videoItem, "Popular Releases");
+        inMemoryCache[`popular:${trimmed}`] = track;
+        return track;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching most popular track:", err);
+  }
+
+  return undefined;
+};
