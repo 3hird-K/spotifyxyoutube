@@ -500,7 +500,7 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
       const videoItem = videos.data?.items?.[0];
       if (videoItem) {
         const track = mapToTrack(videoItem, "Popular Releases");
-        inMemoryCache[cacheKey] = track;
+      inMemoryCache[cacheKey] = track;
 
         // 4. Update Supabase search cache
         await supabase
@@ -522,4 +522,71 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
   }
 
   return undefined;
+};
+
+export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
+  if (!API_KEY || !query) return [];
+  const trimmed = query.trim().toLowerCase();
+  const cacheKey = `artist-search:${trimmed}`;
+
+  try {
+    // 1. Check in-memory cache
+    if (inMemoryCache[cacheKey]) {
+      return inMemoryCache[cacheKey];
+    }
+
+    // 2. Check Supabase cache
+    const { data: cached } = await supabase
+      .from("youtube_search_cache")
+      .select("results, created_at")
+      .eq("query", cacheKey)
+      .maybeSingle();
+
+    if (cached && cached.created_at) {
+      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
+      if (isFresh && Array.isArray(cached.results)) {
+        inMemoryCache[cacheKey] = cached.results;
+        return cached.results;
+      }
+    }
+
+    // 3. Not cached or expired, fetch from YouTube API
+    const res = await axios.get(`${BASE_URL}/search`, {
+      params: {
+        part: "snippet",
+        maxResults: 3,
+        q: trimmed,
+        type: "channel",
+        key: API_KEY,
+      },
+    });
+
+    const items = res.data?.items || [];
+    const artists = items.map((item: any) => ({
+      name: item.snippet?.title || "",
+      thumbnail: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.default?.url || "",
+      youtubeArtistUrl: `https://music.youtube.com/channel/${item.id?.channelId}`,
+    }));
+
+    if (artists.length > 0) {
+      inMemoryCache[cacheKey] = artists;
+
+      // Update Supabase search cache
+      await supabase
+        .from("youtube_search_cache")
+        .upsert(
+          {
+            query: cacheKey,
+            results: artists as any,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "query" }
+        );
+    }
+
+    return artists;
+  } catch (err) {
+    console.error("Error searching artists:", err);
+    return [];
+  }
 };

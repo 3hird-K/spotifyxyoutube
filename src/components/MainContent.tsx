@@ -38,6 +38,8 @@ interface MainContentProps {
   onQueueUpdateOnly: (tracks: Track[]) => void;
   activeView: string;
   setActiveView: (view: string) => void;
+  selectedArtist?: { name: string; thumbnail?: string; youtubeArtistUrl?: string } | null;
+  setSelectedArtist?: (artist: { name: string; thumbnail?: string; youtubeArtistUrl?: string } | null) => void;
   playlists: Playlist[];
   onAddToPlaylist: (playlistId: string, track: Track) => void;
   onRemoveFromPlaylist: (playlistId: string, trackId: string) => void;
@@ -210,7 +212,9 @@ export default function MainContent(props: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
-  const [selectedArtist, setSelectedArtist] = useState<{ name: string; thumbnail?: string; youtubeArtistUrl?: string } | null>(null);
+  const [internalSelectedArtist, setInternalSelectedArtist] = useState<{ name: string; thumbnail?: string; youtubeArtistUrl?: string } | null>(null);
+  const selectedArtist = props.selectedArtist !== undefined ? props.selectedArtist : internalSelectedArtist;
+  const setSelectedArtist = props.setSelectedArtist !== undefined ? props.setSelectedArtist : setInternalSelectedArtist;
 
   const isMobile = useIsMobile();
   const profile = useUserProfile(user);
@@ -903,9 +907,26 @@ export default function MainContent(props: MainContentProps) {
                   ))}
                 </div>
 
+                {/* Recommended artists */}
+                {suggestedArtists.length > 0 && (
+                  <HorizontalScrollSection title="Recommended artists">
+                    {suggestedArtists.map((artist, idx) => (
+                      <div key={`artist-rec-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <ArtistCard
+                          artist={artist}
+                          onSelect={() => {
+                            setSelectedArtist(artist);
+                            setActiveView("artist-detail");
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
+
                 {/* Recommended Stations */}
                 <HorizontalScrollSection
-                  title="Trending Songs"
+                  title="Most Popular songs"
                 // onShowAll={() => console.log("Show all recommended")}
                 >
                   {apiTracks.slice(0, 15).map(track => (
@@ -939,7 +960,7 @@ export default function MainContent(props: MainContentProps) {
                 )}
 
                 {/* Recommended artists */}
-                {suggestedArtists.length > 0 && (
+                {/* {suggestedArtists.length > 0 && (
                   <HorizontalScrollSection title="Recommended artists">
                     {suggestedArtists.map((artist, idx) => (
                       <div key={`artist-rec-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
@@ -953,7 +974,7 @@ export default function MainContent(props: MainContentProps) {
                       </div>
                     ))}
                   </HorizontalScrollSection>
-                )}
+                )} */}
 
                 {/* Suggested songs */}
                 {suggestedSongs.length > 0 && (

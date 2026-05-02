@@ -36,6 +36,7 @@ export default function App() {
   // ── UI State ─────────────────────────────────────────────────────────────
   const [activeView, setActiveView] = useState("home");
   const [selectedTrackDetail, setSelectedTrackDetail] = useState<Track | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<{ name: string; thumbnail?: string; youtubeArtistUrl?: string } | null>(null);
   const [showNowPlaying, setShowNowPlaying] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -656,6 +657,8 @@ export default function App() {
               onQueueUpdateOnly={player.setQueueOnly}
               activeView={activeView}
               setActiveView={setActiveView}
+              selectedArtist={selectedArtist}
+              setSelectedArtist={setSelectedArtist}
               playlists={playlists}
               onAddToPlaylist={handleAddToPlaylist}
               onRemoveFromPlaylist={handleRemoveFromPlaylist}
@@ -851,6 +854,11 @@ export default function App() {
           isOpen={isSearchOpen}
           onClose={() => setIsSearchOpen(false)}
           onSelectTrack={handleSelectFromSearch}
+          onSelectArtist={(artist) => {
+            setSelectedArtist(artist);
+            setActiveView("artist-detail");
+            setIsSearchOpen(false);
+          }}
           liked={player.liked}
           onToggleLike={player.toggleLike}
           recentSearches={recentSearchTracks}
