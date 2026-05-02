@@ -258,3 +258,25 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
   }
   return {};
 };
+
+export const searchYouTubeArtistThumbnail = async (artistName: string): Promise<string | undefined> => {
+  if (!API_KEY || !artistName) return undefined;
+  try {
+    const res = await axios.get(`${BASE_URL}/search`, {
+      params: {
+        part: "snippet",
+        maxResults: 1,
+        q: `${artistName} Official Channel`,
+        type: "channel",
+        key: API_KEY,
+      },
+    });
+    const item = res.data?.items?.[0];
+    if (item && item.snippet?.thumbnails?.high?.url) {
+      return item.snippet.thumbnails.high.url;
+    }
+  } catch (err) {
+    console.error("Error searching channel:", err);
+  }
+  return undefined;
+};

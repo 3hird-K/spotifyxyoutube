@@ -6,7 +6,7 @@ import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { useSearchMusic } from "../hooks/useSearchMusic";
-import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
+import { searchYouTubeMusic, getArtistDetails, searchYouTubeArtistThumbnail } from "../utils/youtube";
 import axios from "axios";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -88,6 +88,11 @@ const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void })
         if (isMounted && data.thumbnailUrl) {
           setRealThumbnail(data.thumbnailUrl);
         }
+      } else if (isMounted) {
+        const thumbnail = await searchYouTubeArtistThumbnail(artist.name);
+        if (isMounted && thumbnail) {
+          setRealThumbnail(thumbnail);
+        }
       }
     };
     fetchRealProfile();
@@ -128,6 +133,59 @@ const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void })
       subtitle="Artist"
       rounded={true}
     />
+  );
+};
+
+const getInitials = (name: string) => {
+  if (!name) return "";
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
+const SuggestedArtistItem = ({ artist, onSelect }: { artist: any; onSelect: () => void }) => {
+  const [thumbnail, setThumbnail] = useState(artist.thumbnail);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRealPic = async () => {
+      const pic = await searchYouTubeArtistThumbnail(artist.name);
+      if (isMounted && pic) {
+        setThumbnail(pic);
+      }
+    };
+    if (artist.name) {
+      fetchRealPic();
+    }
+  }, [artist.name]);
+
+  return (
+    <div
+      onClick={onSelect}
+      className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1 h-full flex-1"
+    >
+      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            alt={artist.name}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
+            {getInitials(artist.name)}
+          </div>
+        )}
+      </div>
+      <div className="w-full">
+        <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
+          {artist.name}
+        </p>
+        <p className="text-xs text-zinc-500 font-medium truncate">Suggested Artist</p>
+      </div>
+    </div>
   );
 };
 
@@ -204,23 +262,51 @@ export default function MainContent(props: MainContentProps) {
     const fetchSuggestedSongs = async () => {
       try {
         let query = "Sabrina Carpenter songs";
-        if (recentSearchTracks && recentSearchTracks.length > 0) {
-          query = `${recentSearchTracks[0].artist} songs`;
+        if (likedTracks && likedTracks.length > 0) {
+          const randomLiked = likedTracks[Math.floor(Math.random() * likedTracks.length)];
+          query = `${randomLiked.artist} ${randomLiked.title} music`;
+        } else if (recentSearchTracks && recentSearchTracks.length > 0) {
+          query = `${recentSearchTracks[0].artist} ${recentSearchTracks[0].title} music`;
         } else if (recentSearches && recentSearches.length > 0) {
-          query = `${recentSearches[0]} songs`;
+          query = `${recentSearches[0]} music`;
         } else if (recentlyPlayed && recentlyPlayed.length > 0) {
           query = `${recentlyPlayed[0].artist} songs`;
-        } else if (likedTracks && likedTracks.length > 0) {
-          query = `${likedTracks[0].artist} songs`;
         } else if (apiTracks && apiTracks.length > 0) {
           query = `${apiTracks[0].artist} songs`;
         }
 
-        const results = await searchYouTubeMusic(query);
-        const filtered = (results || []).filter(t => !isCompilation(t.title));
+        let results = await searchYouTubeMusic(query);
+        let filtered = (results || []).filter(t => !isCompilation(t.title));
 
-        if (isMounted && filtered.length > 0) {
-          setSuggestedSongs(filtered.slice(0, 15));
+        const uniqueFiltered: Track[] = [];
+        const seenTitles = new Set<string>();
+        const seenIds = new Set<string>();
+
+        for (const t of filtered) {
+          const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
+          if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
+            seenTitles.add(lowerTitle);
+            seenIds.add(t.id);
+            uniqueFiltered.push(t);
+          }
+        }
+
+        if (uniqueFiltered.length < 15) {
+          const fallbackResults = await searchYouTubeMusic("top chart official music video 2026");
+          const filteredFallback = (fallbackResults || []).filter(t => !isCompilation(t.title));
+          for (const t of filteredFallback) {
+            if (uniqueFiltered.length >= 15) break;
+            const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
+            if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
+              seenTitles.add(lowerTitle);
+              seenIds.add(t.id);
+              uniqueFiltered.push(t);
+            }
+          }
+        }
+
+        if (isMounted && uniqueFiltered.length > 0) {
+          setSuggestedSongs(uniqueFiltered.slice(0, 15));
         }
       } catch (err) {
         console.error("Error fetching suggested songs:", err);
@@ -383,24 +469,16 @@ export default function MainContent(props: MainContentProps) {
           </div>
 
           {/* Following Section */}
-          <div className="space-y-6">
-            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              Followed Artists
-              <span className="text-sm font-normal text-zinc-500 bg-zinc-800/80 px-2.5 py-0.5 rounded-full">
-                {followedArtists.length}
-              </span>
-            </h2>
-
-            {followedArtists.length === 0 ? (
-              <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-8 text-center max-w-md">
-                <p className="text-zinc-400 font-medium mb-1">Not following any artists yet</p>
-                <p className="text-xs text-zinc-500">Discover and follow your favorite artists to build your network.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-                {followedArtists.map((fa) => (
+          {followedArtists.length === 0 ? (
+            <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-8 text-center max-w-md">
+              <p className="text-zinc-400 font-medium mb-1">Not following any artists yet</p>
+              <p className="text-xs text-zinc-500">Discover and follow your favorite artists to build your network.</p>
+            </div>
+          ) : (
+            <HorizontalScrollSection title="Followed Artists">
+              {followedArtists.map((fa) => (
+                <div key={fa.id} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
                   <div
-                    key={fa.id}
                     onClick={() => {
                       setSelectedArtist({
                         name: fa.name,
@@ -420,7 +498,7 @@ export default function MainContent(props: MainContentProps) {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
-                          {fa.name[0]}
+                          {getInitials(fa.name)}
                         </div>
                       )}
                     </div>
@@ -431,49 +509,28 @@ export default function MainContent(props: MainContentProps) {
                       <p className="text-xs text-zinc-500 font-medium truncate">Artist</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </HorizontalScrollSection>
+          )}
 
           {/* Suggested Artists Section */}
-          <div className="space-y-6">
-            <h2 className="text-xl sm:text-2xl font-black text-white">Suggested artists for you</h2>
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-              {suggested.map((artist, idx) => (
-                <div
-                  key={`sug-${idx}`}
-                  onClick={() => {
+          <HorizontalScrollSection title="Suggested artists for you">
+            {suggested.map((artist, idx) => (
+              <div key={`sug-${idx}`} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
+                <SuggestedArtistItem
+                  artist={artist}
+                  onSelect={() => {
                     setSelectedArtist({
                       name: artist.name,
+                      thumbnail: artist.thumbnail,
                     });
                     setActiveView("artist-detail");
                   }}
-                  className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1"
-                >
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
-                    {artist.thumbnail ? (
-                      <img
-                        src={artist.thumbnail}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        alt={artist.name}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
-                        {artist.name[0]}
-                      </div>
-                    )}
-                  </div>
-                  <div className="w-full">
-                    <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
-                      {artist.name}
-                    </p>
-                    <p className="text-xs text-zinc-500 font-medium truncate">Suggested Artist</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                />
+              </div>
+            ))}
+          </HorizontalScrollSection>
 
         </div>
       </div>
