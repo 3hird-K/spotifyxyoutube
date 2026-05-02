@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Search, Play, Clock, Heart, Loader2, Trash2, ListMusic, Shuffle, Repeat, Repeat1, Pause,
+  Plus,
 } from "lucide-react";
 import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
@@ -169,18 +170,20 @@ const SuggestedArtistItem = ({ artist, onSelect, onFollow }: { artist: any; onSe
       onClick={onSelect}
       className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1 h-full flex-1"
     >
-      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
-        {thumbnail ? (
-          <img
-            src={thumbnail}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            alt={artist.name}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
-            {getInitials(artist.name)}
-          </div>
-        )}
+      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative select-none">
+        <div className="w-full h-full rounded-full overflow-hidden">
+          {thumbnail ? (
+            <img
+              src={thumbnail}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              alt={artist.name}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
+              {getInitials(artist.name)}
+            </div>
+          )}
+        </div>
 
         {/* Green Add button on suggested artist card too! */}
         <button
@@ -190,7 +193,7 @@ const SuggestedArtistItem = ({ artist, onSelect, onFollow }: { artist: any; onSe
               onFollow({ name: artist.name, thumbnail, youtubeArtistUrl: artist.youtubeArtistUrl });
             }
           }}
-          className="absolute bottom-1 right-1 w-8 h-8 sm:w-10 sm:h-10 bg-[#1ed760] hover:bg-[#1fdf64] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 z-20 cursor-pointer text-black"
+          className="absolute bottom-1 right-1 w-8 h-8 sm:w-10 sm:h-10 bg-[#1ed760] hover:bg-[#1fdf64] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 z-20 cursor-pointer text-black flex items-center justify-center border-2 border-zinc-900"
         >
           <Plus size={20} className="text-black font-bold" />
         </button>
@@ -720,7 +723,7 @@ export default function MainContent(props: MainContentProps) {
       <div className="pb-32 relative">
         {/* Top Toast Notification */}
         {toastMessage && (
-          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-[#1ed760] text-black text-sm font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 select-none pointer-events-none transition-all duration-300 transform translate-y-0 scale-100 backdrop-blur-md animate-in fade-in zoom-in-75">
+          <div style={{ zIndex: 2000 }} className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#1ed760] text-black text-sm font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 select-none pointer-events-none transition-all duration-300 transform translate-y-0 scale-100 backdrop-blur-md animate-in fade-in zoom-in-75">
             <span>✨</span>
             <span>{toastMessage}</span>
           </div>
