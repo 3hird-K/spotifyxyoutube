@@ -736,17 +736,19 @@ export default function MainContent(props: MainContentProps) {
         {/* Header */}
         <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50 z-1000">
           <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
               <div className="flex items-center gap-3 min-w-0">
                 {(isPlaylistView || activeView === "liked") && (
-                  <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
-                    {activeView === "liked" ? <Heart size={18} className="text-white fill-white" /> : <ListMusic size={18} className="text-zinc-400" />}
+                  <span className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
+                    {activeView === "liked" ? <Heart size={22} className="text-white fill-white" /> : <ListMusic size={22} className="text-zinc-400" />}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-xl sm:text-4xl font-black text-white truncate mb-2">{pageTitle}</h1>
+                  <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight break-words mb-1 pr-2">
+                    {pageTitle}
+                  </h1>
                   {isPlaylistView && activePlaylist?.description && (
-                    <p className="text-sm text-zinc-400 mb-2 line-clamp-2">{activePlaylist.description}</p>
+                    <p className="text-xs sm:text-sm text-zinc-400 mb-1 line-clamp-1">{activePlaylist.description}</p>
                   )}
                   <div className="flex items-center gap-2">
                     <p className="text-xs sm:text-sm text-zinc-300 font-bold mt-0.5 truncate flex items-center gap-1.5">
@@ -756,15 +758,15 @@ export default function MainContent(props: MainContentProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
+              <div className="flex items-center justify-between sm:justify-end gap-2 mt-1 sm:mt-0 w-full sm:w-auto shrink-0">
                 {(isPlaylistView || activeView === "liked") && displayTracks.length > 0 && (
-                  <div className="flex items-center gap-1 sm:gap-2 mr-2">
+                  <div className="flex items-center gap-2">
                     {/* Play Button */}
                     <Button
                       onClick={() => onSelect(displayTracks[0], displayTracks)}
-                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 border-none"
+                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black rounded-full w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 border-none"
                     >
-                      <Play size={20} fill="black" className="ml-0.5" />
+                      <Play size={22} fill="black" className="ml-0.5" />
                     </Button>
 
                     {/* Shuffle Button */}
@@ -775,7 +777,7 @@ export default function MainContent(props: MainContentProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onToggleShuffle}
-                            className={`rounded-full transition-colors ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                            className={`rounded-full transition-colors w-10 h-10 ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
                           >
                             <Shuffle size={20} />
                           </Button>
@@ -792,7 +794,7 @@ export default function MainContent(props: MainContentProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onToggleRepeat}
-                            className={`rounded-full transition-colors relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                            className={`rounded-full transition-colors relative w-10 h-10 ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
                           >
                             {repeatMode === "one" ? <Repeat1 size={20} /> : <Repeat size={20} />}
                             {repeatMode !== "none" && (
@@ -829,7 +831,7 @@ export default function MainContent(props: MainContentProps) {
                 <Button
                   variant="outline"
                   onClick={onOpenSearch}
-                  className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-500 h-10 whitespace-nowrap shrink-0"
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 border-zinc-700 rounded-full text-xs sm:text-sm text-zinc-300 h-10 whitespace-nowrap shrink-0"
                 >
                   <Search size={16} />
                   <span className="hidden sm:inline">Search tracks, artists…</span>
