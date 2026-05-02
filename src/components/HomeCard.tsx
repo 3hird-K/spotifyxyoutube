@@ -4,12 +4,14 @@ import { Track } from "../data/tracks";
 export function HomeCard({
   track,
   onSelect,
+  onAdd,
   title,
   subtitle,
   rounded = false
 }: {
   track: Track;
   onSelect: (t: Track) => void;
+  onAdd?: () => void;
   title: string;
   subtitle: string;
   rounded?: boolean;
@@ -42,7 +44,11 @@ export function HomeCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onSelect(track);
+            if (rounded && onAdd) {
+              onAdd();
+            } else {
+              onSelect(track);
+            }
           }}
           className="absolute bottom-3 right-3 w-12 h-12 bg-[#1ed760] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-4 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-200 hover:scale-105 z-20"
         >

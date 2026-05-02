@@ -64,7 +64,7 @@ interface MainContentProps {
   recentSearchTracks?: Track[];
 }
 
-const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void }) => {
+const ArtistCard = ({ artist, onSelect, onFollow }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void }) => {
   const [realThumbnail, setRealThumbnail] = useState(artist.thumbnail);
 
   useEffect(() => {
@@ -131,6 +131,7 @@ const ArtistCard = ({ artist, onSelect }: { artist: any; onSelect: () => void })
     <HomeCard
       track={updatedTrack}
       onSelect={onSelect}
+      onAdd={onFollow ? () => onFollow({ name: artist.name, thumbnail: currentThumbnail, youtubeArtistUrl: artist.youtubeArtistUrl }) : undefined}
       title={artist.name}
       subtitle="Artist"
       rounded={true}
@@ -147,7 +148,7 @@ const getInitials = (name: string) => {
   return name.slice(0, 2).toUpperCase();
 };
 
-const SuggestedArtistItem = ({ artist, onSelect }: { artist: any; onSelect: () => void }) => {
+const SuggestedArtistItem = ({ artist, onSelect, onFollow }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void }) => {
   const [thumbnail, setThumbnail] = useState(artist.thumbnail);
 
   useEffect(() => {
@@ -180,6 +181,19 @@ const SuggestedArtistItem = ({ artist, onSelect }: { artist: any; onSelect: () =
             {getInitials(artist.name)}
           </div>
         )}
+
+        {/* Green Add button on suggested artist card too! */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFollow) {
+              onFollow({ name: artist.name, thumbnail, youtubeArtistUrl: artist.youtubeArtistUrl });
+            }
+          }}
+          className="absolute bottom-1 right-1 w-8 h-8 sm:w-10 sm:h-10 bg-[#1ed760] hover:bg-[#1fdf64] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 z-20 cursor-pointer text-black"
+        >
+          <Plus size={20} className="text-black font-bold" />
+        </button>
       </div>
       <div className="w-full">
         <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
@@ -212,6 +226,7 @@ export default function MainContent(props: MainContentProps) {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [internalSelectedArtist, setInternalSelectedArtist] = useState<{ name: string; thumbnail?: string; youtubeArtistUrl?: string } | null>(null);
   const selectedArtist = props.selectedArtist !== undefined ? props.selectedArtist : internalSelectedArtist;
   const setSelectedArtist = props.setSelectedArtist !== undefined ? props.setSelectedArtist : setInternalSelectedArtist;
@@ -219,6 +234,14 @@ export default function MainContent(props: MainContentProps) {
   const isMobile = useIsMobile();
   const profile = useUserProfile(user);
   const { followedArtists = [], toggleFollowArtist, isFollowing } = useFollowedArtists(user);
+
+  const handleFollowArtist = (artistData: { name: string; thumbnail?: string; youtubeArtistUrl?: string }) => {
+    if (!artistData?.name) return;
+    const currentlyFollowing = isFollowing(artistData.name);
+    toggleFollowArtist(artistData);
+    setToastMessage(currentlyFollowing ? `Unfollowed ${artistData.name}` : `Followed ${artistData.name}`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const isPlaylistView = activeView.startsWith("playlist:");
   const isLibraryView = activeView === "library";
@@ -545,6 +568,7 @@ export default function MainContent(props: MainContentProps) {
                     });
                     setActiveView("artist-detail");
                   }}
+                  onFollow={handleFollowArtist}
                 />
               </div>
             ))}
@@ -692,8 +716,15 @@ export default function MainContent(props: MainContentProps) {
           : "Trending Music";
 
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto">
-      <div className="pb-32">
+    <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto relative">
+      <div className="pb-32 relative">
+        {/* Top Toast Notification */}
+        {toastMessage && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-[#1ed760] text-black text-sm font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 select-none pointer-events-none transition-all duration-300 transform translate-y-0 scale-100 backdrop-blur-md animate-in fade-in zoom-in-75">
+            <span>✨</span>
+            <span>{toastMessage}</span>
+          </div>
+        )}
         {/* Header */}
         <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-zinc-800/50 z-1000">
           <div className="flex flex-col gap-4">
@@ -918,6 +949,7 @@ export default function MainContent(props: MainContentProps) {
                             setSelectedArtist(artist);
                             setActiveView("artist-detail");
                           }}
+                          onFollow={handleFollowArtist}
                         />
                       </div>
                     ))}
