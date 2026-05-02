@@ -44,6 +44,9 @@ interface MobileHomeViewProps {
     onDeletePlaylist: (playlist: Playlist) => void;
     isPlaylistView: boolean;
     onOpenSearch: () => void;
+    suggestedSongs?: Track[];
+    suggestedArtists?: any[];
+    setSelectedArtist?: (artist: any) => void;
 }
 
 export function MobileHomeView({
@@ -65,6 +68,9 @@ export function MobileHomeView({
     onDeletePlaylist,
     isPlaylistView,
     onOpenSearch,
+    suggestedSongs = [],
+    suggestedArtists = [],
+    setSelectedArtist,
 }: MobileHomeViewProps) {
     const [activeTab, setActiveTab] = useState("All");
     const { isGuest, displayName, avatarUrl, avatarInitial } = profile;
@@ -200,20 +206,52 @@ export function MobileHomeView({
 
                 {/* Recommended */}
                 <Section title="Recommended for you">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
-                            <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
-                        ))}
-                    </div>
+                    {suggestedArtists.length > 0 ? (
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                            {suggestedArtists.map((artist, idx) => (
+                                <div
+                                    key={`art-rec-${idx}`}
+                                    onClick={() => {
+                                        if (setSelectedArtist) setSelectedArtist(artist);
+                                        setActiveView("artist-detail");
+                                    }}
+                                    className="shrink-0 w-24 flex flex-col items-center text-center gap-2 group cursor-pointer"
+                                >
+                                    <div className="relative aspect-square w-20 h-20 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-xl bg-zinc-900 select-none">
+                                        {artist.thumbnail ? (
+                                            <img
+                                                src={artist.thumbnail}
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                alt={artist.name}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 font-black text-xl">
+                                                {artist.name?.slice(0, 2).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] font-bold text-white truncate w-full">
+                                        {artist.name}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
+                                <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
+                            ))}
+                        </div>
+                    )}
                 </Section>
 
                 {/* Made for you */}
                 <Section title="Made for You">
                     <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
-                        {tracks.slice(6, 12).map((track) => (
+                        {(suggestedSongs.length > 0 ? suggestedSongs : tracks).slice(0, 8).map((track) => (
                             <div
                                 key={track.id}
-                                onClick={() => onSelect(track, tracks)}
+                                onClick={() => onSelect(track, suggestedSongs.length > 0 ? suggestedSongs : tracks)}
                                 className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
                             >
                                 <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
@@ -223,8 +261,11 @@ export function MobileHomeView({
                                         alt=""
                                     />
                                 </div>
-                                <p className="text-[10px] font-medium text-zinc-400 line-clamp-2">
-                                    Daily Mix featuring {track.artist} and more
+                                <p className="text-[11px] font-bold text-white truncate px-0.5">
+                                    {track.title}
+                                </p>
+                                <p className="text-[10px] font-medium text-zinc-400 line-clamp-2 px-0.5">
+                                    Mix featuring {track.artist}
                                 </p>
                             </div>
                         ))}

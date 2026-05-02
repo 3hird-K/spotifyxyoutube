@@ -379,6 +379,100 @@ export default function MainContent(props: MainContentProps) {
     return () => { cancelled = true; };
   }, [isTrackDetailView, selectedTrackDetail]);
 
+  // Combine unique artists from recently played, liked, and apiTracks (excluding followed ones)
+  const suggestedArtists = (() => {
+    const uniqueArtists: { name: string; thumbnail?: string; youtubeArtistUrl?: string; track?: Track }[] = [];
+    const seenNames = new Set<string>();
+
+    const isFollowed = (artistName: string) => {
+      if (!artistName) return false;
+      const t = artistName.toLowerCase().trim();
+      const cleanT = t.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
+
+      return (followedArtists || []).some((fa) => {
+        if (!fa.name) return false;
+        const fan = fa.name.toLowerCase().trim();
+        const cleanFan = fan.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
+
+        return (
+          cleanT === cleanFan ||
+          cleanT.includes(cleanFan) ||
+          cleanFan.includes(cleanT)
+        );
+      });
+    };
+
+    // 1. Add from recently played
+    recentlyPlayed.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    // 2. Add from liked
+    likedTracks.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    // 3. Add from top trending / api tracks
+    apiTracks.forEach((t) => {
+      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
+        seenNames.add(t.artist.toLowerCase().trim());
+        uniqueArtists.push({
+          name: t.artist,
+          thumbnail: t.thumbnail,
+          youtubeArtistUrl: t.youtubeArtistUrl,
+          track: t,
+        });
+      }
+    });
+
+    // 4. Fill up to 15 using top famous artists
+    const fallbackArtists = [
+      { name: "Sabrina Carpenter" },
+      { name: "Bruno Mars" },
+      { name: "Billie Eilish" },
+      { name: "The Weeknd" },
+      { name: "SZA" },
+      { name: "Dua Lipa" },
+      { name: "Post Malone" },
+      { name: "Taylor Swift" },
+      { name: "Drake" },
+      { name: "Rihanna" },
+      { name: "Justin Bieber" },
+      { name: "Ariana Grande" },
+      { name: "Lady Gaga" },
+      { name: "Coldplay" },
+      { name: "Ed Sheeran" },
+      { name: "Beyoncé" }
+    ];
+
+    fallbackArtists.forEach((fa) => {
+      if (uniqueArtists.length >= 15) return;
+      const lower = fa.name.toLowerCase().trim();
+      if (!isFollowed(fa.name) && !seenNames.has(lower)) {
+        seenNames.add(lower);
+        uniqueArtists.push({ name: fa.name });
+      }
+    });
+
+    return uniqueArtists.slice(0, 15);
+  })();
+
   // ─── Routing ───────────────────────────────────────────
 
   // Mobile home
@@ -405,6 +499,9 @@ export default function MainContent(props: MainContentProps) {
           onDeletePlaylist={onDeletePlaylist}
           isPlaylistView={isPlaylistView}
           onOpenSearch={onOpenSearch}
+          suggestedSongs={suggestedSongs}
+          suggestedArtists={suggestedArtists}
+          setSelectedArtist={setSelectedArtist}
         />
       </>
     );
@@ -602,99 +699,7 @@ export default function MainContent(props: MainContentProps) {
     );
   }
 
-  // Combine unique artists from recently played, liked, and apiTracks (excluding followed ones)
-  const suggestedArtists = (() => {
-    const uniqueArtists: { name: string; thumbnail?: string; youtubeArtistUrl?: string; track?: Track }[] = [];
-    const seenNames = new Set<string>();
 
-    const isFollowed = (artistName: string) => {
-      if (!artistName) return false;
-      const t = artistName.toLowerCase().trim();
-      const cleanT = t.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
-
-      return (followedArtists || []).some((fa) => {
-        if (!fa.name) return false;
-        const fan = fa.name.toLowerCase().trim();
-        const cleanFan = fan.replace(/\s*-\s*topic$/, "").replace(/official$/, "").trim();
-
-        return (
-          cleanT === cleanFan ||
-          cleanT.includes(cleanFan) ||
-          cleanFan.includes(cleanT)
-        );
-      });
-    };
-
-    // 1. Add from recently played
-    recentlyPlayed.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
-        seenNames.add(t.artist.toLowerCase().trim());
-        uniqueArtists.push({
-          name: t.artist,
-          thumbnail: t.thumbnail,
-          youtubeArtistUrl: t.youtubeArtistUrl,
-          track: t,
-        });
-      }
-    });
-
-    // 2. Add from liked
-    likedTracks.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
-        seenNames.add(t.artist.toLowerCase().trim());
-        uniqueArtists.push({
-          name: t.artist,
-          thumbnail: t.thumbnail,
-          youtubeArtistUrl: t.youtubeArtistUrl,
-          track: t,
-        });
-      }
-    });
-
-    // 3. Add from top trending / api tracks
-    apiTracks.forEach((t) => {
-      if (t.artist && !seenNames.has(t.artist.toLowerCase().trim()) && !isFollowed(t.artist)) {
-        seenNames.add(t.artist.toLowerCase().trim());
-        uniqueArtists.push({
-          name: t.artist,
-          thumbnail: t.thumbnail,
-          youtubeArtistUrl: t.youtubeArtistUrl,
-          track: t,
-        });
-      }
-    });
-
-    // 4. Fill up to 15 using top famous artists
-    const fallbackArtists = [
-      { name: "Sabrina Carpenter" },
-      { name: "Bruno Mars" },
-      { name: "Billie Eilish" },
-      { name: "The Weeknd" },
-      { name: "SZA" },
-      { name: "Dua Lipa" },
-      { name: "Post Malone" },
-      { name: "Taylor Swift" },
-      { name: "Drake" },
-      { name: "Rihanna" },
-      { name: "Justin Bieber" },
-      { name: "Ariana Grande" },
-      { name: "Lady Gaga" },
-      { name: "Coldplay" },
-      { name: "Ed Sheeran" },
-      { name: "Beyoncé" }
-    ];
-
-    fallbackArtists.forEach((fa) => {
-      if (uniqueArtists.length >= 15) return;
-      const lower = fa.name.toLowerCase().trim();
-      if (!isFollowed(fa.name) && !seenNames.has(lower)) {
-        seenNames.add(lower);
-        uniqueArtists.push({ name: fa.name });
-      }
-    });
-
-    return uniqueArtists.slice(0, 15);
-  })();
 
   // Determine tracks to display for list views (for desktop/non-home views)
   let displayTracks: Track[] = [];
@@ -959,6 +964,22 @@ export default function MainContent(props: MainContentProps) {
                   </HorizontalScrollSection>
                 )}
 
+                {/* Suggested songs */}
+                {suggestedSongs.length > 0 && (
+                  <HorizontalScrollSection title="Suggested songs">
+                    {suggestedSongs.map(track => (
+                      <div key={`suggested-song-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <HomeCard
+                          track={track}
+                          onSelect={(t) => onSelect(t, suggestedSongs)}
+                          title={track.title}
+                          subtitle={track.artist}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
+
                 {/* Recommended Stations */}
                 <HorizontalScrollSection
                   title="Most Popular songs"
@@ -975,6 +996,7 @@ export default function MainContent(props: MainContentProps) {
                     </div>
                   ))}
                 </HorizontalScrollSection>
+
 
                 {recentlyPlayed.length > 0 && (
                   <HorizontalScrollSection
@@ -1011,21 +1033,7 @@ export default function MainContent(props: MainContentProps) {
                   </HorizontalScrollSection>
                 )} */}
 
-                {/* Suggested songs */}
-                {suggestedSongs.length > 0 && (
-                  <HorizontalScrollSection title="Suggested songs">
-                    {suggestedSongs.map(track => (
-                      <div key={`suggested-song-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                        <HomeCard
-                          track={track}
-                          onSelect={(t) => onSelect(t, suggestedSongs)}
-                          title={track.title}
-                          subtitle={track.artist}
-                        />
-                      </div>
-                    ))}
-                  </HorizontalScrollSection>
-                )}
+
 
               </div>
             ) : (

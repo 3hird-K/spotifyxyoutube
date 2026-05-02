@@ -22,10 +22,10 @@ export function LibraryView({
   onPlayPlaylist: (tracks: Track[]) => void;
 }) {
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-zinc-950 overflow-y-auto px-8 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Your Library</h1>
+    <main className="flex-1 flex flex-col min-h-0 bg-zinc-950 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 select-none">
+      <h1 className="text-2xl sm:text-3xl font-black text-white mb-4">Your Library</h1>
 
-      <div className="mb-12">
+      <div className="mb-6">
         <HorizontalScrollSection title="Playlists & Liked Songs">
           {/* Liked Songs Card */}
           <div className="shrink-0 w-[180px] sm:w-[240px] pr-2">
@@ -80,7 +80,7 @@ export function LibraryView({
       </div>
 
       {recentlyPlayed.length > 0 && (
-        <div className="pb-8">
+        <div>
           <HorizontalScrollSection title="Recently Played">
             {recentlyPlayed.map((track) => (
               <div key={track.id} className="shrink-0 w-[180px] sm:w-[220px]">
