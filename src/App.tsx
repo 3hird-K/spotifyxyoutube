@@ -10,7 +10,7 @@ import { useFollowedArtists } from "./hooks/useFollowedArtists";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
 import { MobilePlayer } from "./components/MobilePlayer";
 import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
-import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus, ListMusic, Pencil } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus, ListMusic, Pencil, Users } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
@@ -820,6 +820,7 @@ export default function App() {
             <div className="flex items-center justify-around h-16 px-4">
               {[
                 { icon: Home, label: "Home", view: "home" },
+                { icon: Users, label: "Following", view: "following" },
                 {
                   icon: Plus,
                   label: "Playlist",

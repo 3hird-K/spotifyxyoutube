@@ -206,43 +206,11 @@ export function MobileHomeView({
 
                 {/* Recommended */}
                 <Section title="Recommended for you">
-                    {suggestedArtists.length > 0 ? (
-                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
-                            {suggestedArtists.map((artist, idx) => (
-                                <div
-                                    key={`art-rec-${idx}`}
-                                    onClick={() => {
-                                        if (setSelectedArtist) setSelectedArtist(artist);
-                                        setActiveView("artist-detail");
-                                    }}
-                                    className="shrink-0 w-24 flex flex-col items-center text-center gap-2 group cursor-pointer"
-                                >
-                                    <div className="relative aspect-square w-20 h-20 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-xl bg-zinc-900 select-none">
-                                        {artist.thumbnail ? (
-                                            <img
-                                                src={artist.thumbnail}
-                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                                alt={artist.name}
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 font-black text-xl">
-                                                {artist.name?.slice(0, 2).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <p className="text-[11px] font-bold text-white truncate w-full">
-                                        {artist.name}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                            {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
-                                <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
-                            ))}
-                        </div>
-                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
+                            <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
+                        ))}
+                    </div>
                 </Section>
 
                 {/* Made for you */}
