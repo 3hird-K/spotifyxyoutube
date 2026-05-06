@@ -1,12 +1,13 @@
 import { useState } from "react";
 import {
     Play, Pause, Heart, Trash2, ListMusic, LogOut, Menu, Plus,
-    Search,
+    Search, Download
 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { supabase } from "../lib/supabase";
 import { UserProfile } from "../hooks/useUserProfile";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,6 +75,7 @@ export function MobileHomeView({
 }: MobileHomeViewProps) {
     const [activeTab, setActiveTab] = useState("All");
     const { isGuest, displayName, avatarUrl, avatarInitial } = profile;
+    const { isInstallable, installApp } = usePWAInstall();
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -138,6 +140,15 @@ export function MobileHomeView({
                                         <Plus size={14} />
                                         <span>Create Playlist</span>
                                     </DropdownMenuItem>
+                                    {isInstallable && (
+                                        <DropdownMenuItem
+                                            onClick={installApp}
+                                            className="text-[#1DB954] hover:text-[#1ed760] hover:bg-[#1DB954]/10 cursor-pointer flex items-center gap-2"
+                                        >
+                                            <Download size={14} />
+                                            <span>Install App</span>
+                                        </DropdownMenuItem>
+                                    )}
                                     {isPlaylistView && activePlaylist && (
                                         <DropdownMenuItem
                                             onClick={() => onDeletePlaylist(activePlaylist)}
@@ -185,6 +196,26 @@ export function MobileHomeView({
 
             {/* Content */}
             <div className="flex-1 px-4 py-2 w-full">
+                {isInstallable && (
+                    <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex items-center justify-between shadow-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#1DB954]/20 flex items-center justify-center">
+                                <Download size={16} className="text-[#1DB954]" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-white">Install App</p>
+                                <p className="text-[10px] text-zinc-400">Add to home screen for background play.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={installApp}
+                            className="text-xs font-bold bg-white text-black px-3 py-1.5 rounded-full hover:scale-105 transition-transform"
+                        >
+                            Install
+                        </button>
+                    </div>
+                )}
+
                 {/* Quick playlists grid */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
                     <QuickPlaylistCard

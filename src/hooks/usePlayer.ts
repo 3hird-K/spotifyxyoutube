@@ -125,8 +125,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
           }
           // CASE 1: Paused or Cued (Common in background)
           if (state === 2 || state === 5) {
-            // console.log(`[BG] Paused/Cued -> forcing playVideo()`);
-            p.playVideo();
+            // Force play bypassing background block
+            try {
+              p.mute();
+              p.playVideo();
+              setTimeout(() => {
+                try { p.unMute(); } catch {}
+              }, 300);
+            } catch {}
           }
           // CASE 2: Stuck Unstarted (THE KILLER)
           else if (state === -1) {
@@ -368,6 +374,19 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         }, 150);
       } else if (event.data === 2) {
         // Paused
+        if (document.hidden && isPlayingRef.current) {
+          // Chrome/Android forced a background pause. FIGHT BACK!
+          // We must Mute -> Play -> Unmute to bypass the background autoplay block.
+          try {
+            event.target.mute();
+            event.target.playVideo();
+            setTimeout(() => {
+              try { event.target.unMute(); } catch {}
+            }, 300);
+          } catch {}
+          return; // Do NOT process as a real pause
+        }
+        
         setIsPlaying(false);
         clearTimer();
         clearPlaybackSafetyTimeout();
@@ -596,7 +615,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
     setIsPlaying((prev) => {
       const next = !prev;
-      // console.log(`Toggle play: ${prev ? "PLAYING → PAUSED" : "PAUSED → PLAYING"}`);
+      isPlayingRef.current = next; // Immediately sync intention
 
       try {
         if (next) {
@@ -868,6 +887,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
     nav.setActionHandler("play", () => {
       setIsPlaying(true);
+      isPlayingRef.current = true;
       playerRef.current?.playVideo();
       resumeAudioContext();
       kickPlay();
@@ -875,6 +895,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
     nav.setActionHandler("pause", () => {
       setIsPlaying(false);
+      isPlayingRef.current = false;
       playerRef.current?.pauseVideo();
     });
 

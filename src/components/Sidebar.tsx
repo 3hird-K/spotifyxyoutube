@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Home, Library, Plus, Heart, ListMusic, Trash2, Pencil, Users } from "lucide-react";
+import { Home, Library, Plus, Heart, ListMusic, Trash2, Pencil, Users, Download } from "lucide-react";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import Logo from '../public/images/spotifylogo.png';
@@ -42,6 +43,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
+  const { isInstallable, installApp } = usePWAInstall();
 
   const handleCreate = () => {
     const name = newPlaylistName.trim();
@@ -86,6 +88,18 @@ export default function Sidebar({
             </button>
           ))}
         </nav>
+
+        {isInstallable && (
+          <div className="px-3 mt-2">
+            <button
+              onClick={installApp}
+              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold text-[#1DB954] hover:text-[#1ed760] hover:bg-[#1DB954]/10 transition-colors border border-[#1DB954]/20 bg-[#1DB954]/5 shadow-sm"
+            >
+              <Download size={22} />
+              Install App
+            </button>
+          </div>
+        )}
 
         <Separator className="mx-3 my-4 bg-zinc-800/50" />
 
