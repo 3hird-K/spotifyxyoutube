@@ -16,7 +16,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg'],
+      includeAssets: ['logo-512x512.png'],
       manifest: {
         name: 'Spotify Music Player',
         short_name: 'Spotify Player',
@@ -26,9 +26,9 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'logo.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: 'logo-512x512.png',
+            sizes: '192x192 512x512',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
