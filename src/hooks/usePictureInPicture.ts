@@ -33,6 +33,9 @@ export function usePictureInPicture(
       const video = document.createElement('video');
       video.muted = true;
       video.playsInline = true;
+      (video as any).disablePictureInPicture = false;
+      video.setAttribute('autopictureinpicture', 'true'); // Hint to browser for automatic PiP
+      
       // Do not use autoplay = true here, as it causes the browser tab to spin endlessly
       // waiting for stream data. We call play() manually in enterPiP.
       video.style.cssText =
@@ -118,6 +121,12 @@ export function usePictureInPicture(
       ctx.fillText(currentTrack.artist.slice(0, 25), 24, 300);
     };
     img.src = currentTrack.thumbnail;
+
+    // Keep the video actively playing in the background so autoPictureInPicture can trigger
+    const video = videoRef.current;
+    if (video && video.paused) {
+      video.play().catch(() => {});
+    }
   }, [currentTrack?.id, currentTrack?.thumbnail]);
 
   // Animate the canvas slightly so the stream stays "alive" (required for PiP)
