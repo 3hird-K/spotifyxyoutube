@@ -106,7 +106,6 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     currentTrack?.duration,
     () => handleNextRef.current(true),
     () => {
-      // 🔥 NEW LOGIC HERE 🔥
       const p = playerRef.current;
       if (!p || typeof p.getPlayerState !== "function") return;
 
@@ -118,39 +117,32 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         if (intentionalPauseRef.current) return;
 
         if (isPlayingRef.current && track) {
+          // If playing in background, keep it going (don't unmute here!)
           if (state === 1) {
             lastStuckTimeRef.current = Date.now();
-            if (!isMuted) {
-              try {
-                p.unMute();
-                p.setVolume(volumeRef.current * 100);
-              } catch { }
-            }
+            // Don't unmute in background - Chrome will kill it
           }
           // CASE 1: Paused or Cued (Common in background)
           if (state === 2 || state === 5) {
-            // Force play bypassing background block
+            // Play MUTED in background - Chrome allows muted autoplay
             try {
               p.mute();
               p.playVideo();
-              setTimeout(() => {
-                try { p.unMute(); } catch {}
-              }, 300);
             } catch {}
           }
           // CASE 2: Stuck Unstarted (THE KILLER)
           else if (state === -1) {
             const isNewTrack = track.youtubeId !== lastPokedTrackIdRef.current;
 
-            // First time seeing this track? Load it.
             if (isNewTrack) {
+              p.mute();
               p.loadVideoById(track.youtubeId);
               setTimeout(() => p.playVideo(), 100);
               lastPokedTrackIdRef.current = track.youtubeId;
               lastStuckTimeRef.current = Date.now();
             }
-            // Stuck on same track? Only NUKE IT if it has been unstarted for more than 10 seconds
             else if (Date.now() - lastStuckTimeRef.current > 10000) {
+              p.mute();
               wakeUpPlayer();
               lastStuckTimeRef.current = Date.now();
             }
@@ -372,13 +364,12 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         // Paused
         // Only fight a background pause if user did NOT intentionally pause
         if (document.hidden && isPlayingRef.current && !intentionalPauseRef.current) {
-          // Chrome/Android forced a background pause. FIGHT BACK!
+          // Chrome/Android forced a background pause.
+          // Play MUTED - Chrome allows muted background autoplay.
+          // We'll unmute when the user returns to the app.
           try {
             event.target.mute();
             event.target.playVideo();
-            setTimeout(() => {
-              try { event.target.unMute(); } catch {}
-            }, 300);
           } catch {}
           return; // Do NOT process as a real pause
         }
@@ -407,52 +398,66 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     [clearTimer, clearPlaybackSafetyTimeout, startTimer]
   );
 
-  // Visibility fallback: when user returns to tab, try to continue or advance if needed
+  // Visibility handler: mute when going to background, unmute+resume when returning
   useEffect(() => {
     const handleVisibilityChange = () => {
-      // Only process when tab becomes visible
-      if (document.hidden) return;
-
       const p = playerRef.current;
       const track = currentTrackRef.current;
 
-      if (!p || !track || !isPlayingRef.current) return;
+      if (document.hidden) {
+        // GOING TO BACKGROUND
+        // Mute the player so Chrome allows it to keep playing
+        if (p && isPlayingRef.current && !intentionalPauseRef.current) {
+          try {
+            p.mute();
+            p.playVideo(); // Re-issue play command while muted
+          } catch {}
+        }
+        return;
+      }
+
+      // RETURNING TO FOREGROUND
+      if (!p || !track) return;
 
       resumeAudioContext();
 
-      try {
-        // Get both YouTube player time and estimated time based on wall clock
-        const youtubeTime = p.getCurrentTime();
-        const estimatedTime = Math.max(
-          youtubeTime,
-          (Date.now() - trackStartWallTimeRef.current) / 1000
-        );
-
-        // If we're past the end of the track, move to next
-        if (estimatedTime >= track.duration - 1.0) {
-          // console.log(`Tab returned, track elapsed: ${estimatedTime}s/${track.duration}s - advancing`);
-          handleNextRef.current(true);
-          return;
-        }
-
-        // Resume playback
-        // console.log(`Tab returned, resuming playback at ${estimatedTime}s`);
-        p.playVideo();
-        kickPlay();
-        startTimer();
-      } catch (err) {
-        console.warn("Error resuming on visibility change:", err);
+      // Always unmute when returning, even if intentionally paused
+      // (the user sees the app, so audio control is back in their hands)
+      if (!intentionalPauseRef.current && isPlayingRef.current) {
         try {
+          // Unmute and restore volume
+          if (!isMuted) {
+            p.unMute();
+          }
+          p.setVolume(volumeRef.current * 100);
+
+          // Check if track finished while backgrounded
+          const youtubeTime = p.getCurrentTime();
+          const estimatedTime = Math.max(
+            youtubeTime,
+            (Date.now() - trackStartWallTimeRef.current) / 1000
+          );
+
+          if (estimatedTime >= track.duration - 1.0) {
+            handleNextRef.current(true);
+            return;
+          }
+
+          // Force resume
           p.playVideo();
-          kickPlay();
           startTimer();
-        } catch { }
+        } catch (err) {
+          try {
+            p.playVideo();
+            startTimer();
+          } catch {}
+        }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [kickPlay, resumeAudioContext, startTimer]);
+  }, [resumeAudioContext, startTimer]);
 
   // Load / cue the current track whenever it changes
   useEffect(() => {
