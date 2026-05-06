@@ -13,46 +13,68 @@ export function usePictureInPicture(
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPiPActive, setIsPiPActive] = useState(false);
-  const [isPiPSupported, setIsPiPSupported] = useState(false);
   const animFrameRef = useRef<number | null>(null);
+  const initializedRef = useRef(false);
 
-  // Initialize canvas + video element once
+  // Always show the button on mobile (we'll try PiP on tap)
+  const isPiPSupported = typeof document !== 'undefined';
+
+  // Lazy-initialize canvas + video (called on first PiP attempt or on mount)
+  const ensureInitialized = useCallback(() => {
+    if (initializedRef.current) return true;
+    if (typeof document === 'undefined') return false;
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      canvasRef.current = canvas;
+
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      // Do not use autoplay = true here, as it causes the browser tab to spin endlessly
+      // waiting for stream data. We call play() manually in enterPiP.
+      video.style.cssText =
+        'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
+
+      // Draw an initial frame so the stream isn't completely empty
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 512, 512);
+      }
+
+      const stream = canvas.captureStream(1);
+      video.srcObject = stream;
+      videoRef.current = video;
+
+      video.addEventListener('enterpictureinpicture', () => setIsPiPActive(true));
+      video.addEventListener('leavepictureinpicture', () => setIsPiPActive(false));
+
+      initializedRef.current = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Try to initialize on mount
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (!document.pictureInPictureEnabled) return;
-
-    setIsPiPSupported(true);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    canvasRef.current = canvas;
-
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    // Off-screen but in DOM (required for PiP)
-    video.style.cssText =
-      'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-    document.body.appendChild(video);
-
-    const stream = canvas.captureStream(1);
-    video.srcObject = stream;
-    videoRef.current = video;
-
-    video.addEventListener('enterpictureinpicture', () => setIsPiPActive(true));
-    video.addEventListener('leavepictureinpicture', () => setIsPiPActive(false));
-
+    ensureInitialized();
     return () => {
+      const video = videoRef.current;
+      if (!video) return;
       try {
         if (document.pictureInPictureElement === video) {
           document.exitPictureInPicture();
         }
       } catch {}
       video.remove();
+      initializedRef.current = false;
     };
-  }, []);
+  }, [ensureInitialized]);
 
   // Draw album art onto canvas whenever track changes
   useEffect(() => {
@@ -88,7 +110,6 @@ export function usePictureInPicture(
       ctx.fillText(currentTrack.artist.slice(0, 30), 16, 496);
     };
     img.onerror = () => {
-      // Fallback: just show text
       ctx.fillStyle = '#1DB954';
       ctx.font = 'bold 32px sans-serif';
       ctx.fillText(currentTrack.title.slice(0, 18), 24, 260);
@@ -109,7 +130,6 @@ export function usePictureInPicture(
     if (!ctx) return;
 
     const tick = () => {
-      // Tiny invisible pixel change to keep the stream active
       ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.01})`;
       ctx.fillRect(0, 0, 1, 1);
       animFrameRef.current = requestAnimationFrame(tick);
@@ -122,16 +142,27 @@ export function usePictureInPicture(
   }, [isPiPActive]);
 
   const enterPiP = useCallback(async () => {
+    // Lazy init on user gesture (important for mobile!)
+    ensureInitialized();
+
     const video = videoRef.current;
-    if (!video || !document.pictureInPictureEnabled) return;
+    if (!video) {
+      alert('Picture-in-Picture is not supported on this browser.');
+      return;
+    }
 
     try {
       await video.play();
-      await video.requestPictureInPicture();
-    } catch (e) {
+      if (typeof video.requestPictureInPicture === 'function') {
+        await video.requestPictureInPicture();
+      } else {
+        alert('Picture-in-Picture is not supported on this browser. Try using Chrome.');
+      }
+    } catch (e: any) {
       console.warn('PiP request failed:', e);
+      alert(`PiP failed: ${e?.message || 'Not supported on this device.'}`);
     }
-  }, []);
+  }, [ensureInitialized]);
 
   const exitPiP = useCallback(async () => {
     try {

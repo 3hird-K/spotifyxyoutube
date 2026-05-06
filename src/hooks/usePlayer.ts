@@ -117,6 +117,10 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         if (intentionalPauseRef.current) return;
 
         if (isPlayingRef.current && track) {
+          const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+          const isPipActive = typeof document !== 'undefined' && !!document.pictureInPictureElement;
+          const shouldMuteHack = isMobile && !isPipActive;
+          
           // If playing in background, keep it going (don't unmute here!)
           if (state === 1) {
             lastStuckTimeRef.current = Date.now();
@@ -124,9 +128,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
           }
           // CASE 1: Paused or Cued (Common in background)
           if (state === 2 || state === 5) {
-            // Play MUTED in background - Chrome allows muted autoplay
+            // Play MUTED in background on mobile - Chrome allows muted autoplay
             try {
-              p.mute();
+              if (shouldMuteHack) p.mute();
               p.playVideo();
             } catch {}
           }
@@ -135,14 +139,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
             const isNewTrack = track.youtubeId !== lastPokedTrackIdRef.current;
 
             if (isNewTrack) {
-              p.mute();
+              if (shouldMuteHack) p.mute();
               p.loadVideoById(track.youtubeId);
               setTimeout(() => p.playVideo(), 100);
               lastPokedTrackIdRef.current = track.youtubeId;
               lastStuckTimeRef.current = Date.now();
             }
             else if (Date.now() - lastStuckTimeRef.current > 10000) {
-              p.mute();
+              if (shouldMuteHack) p.mute();
               wakeUpPlayer();
               lastStuckTimeRef.current = Date.now();
             }
@@ -365,10 +369,11 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         // Only fight a background pause if user did NOT intentionally pause
         if (document.hidden && isPlayingRef.current && !intentionalPauseRef.current) {
           // Chrome/Android forced a background pause.
-          // Play MUTED - Chrome allows muted background autoplay.
-          // We'll unmute when the user returns to the app.
+          // Play MUTED on mobile - Chrome allows muted background autoplay.
+          const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+          const isPipActive = typeof document !== 'undefined' && !!document.pictureInPictureElement;
           try {
-            event.target.mute();
+            if (isMobile && !isPipActive) event.target.mute();
             event.target.playVideo();
           } catch {}
           return; // Do NOT process as a real pause
@@ -406,11 +411,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
       if (document.hidden) {
         // GOING TO BACKGROUND
-        // Mute the player so Chrome allows it to keep playing
+        const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+        const isPipActive = typeof document !== 'undefined' && !!document.pictureInPictureElement;
+        
+        // Mute the player on mobile so Chrome allows it to keep playing
         if (p && isPlayingRef.current && !intentionalPauseRef.current) {
           try {
-            p.mute();
-            p.playVideo(); // Re-issue play command while muted
+            if (isMobile && !isPipActive) p.mute();
+            p.playVideo(); // Re-issue play command
           } catch {}
         }
         return;
@@ -500,7 +508,17 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
         if (shouldLoadManual || document.hidden) {
           try {
-            p.mute(); // Mute to bypass Autoplay Block
+            const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+            const isPipActive = typeof document !== 'undefined' && !!document.pictureInPictureElement;
+            
+            // Only mute to bypass autoplay blocks if we are hidden on mobile AND not using PiP.
+            if (document.hidden && isMobile && !isPipActive) {
+              p.mute();
+            } else if (!isMuted) {
+              p.unMute();
+              p.setVolume(volumeRef.current * 100);
+            }
+            
             p.loadVideoById(currentTrack.youtubeId);
             p.playVideo();
             lastPokedTrackIdRef.current = currentTrack.youtubeId;

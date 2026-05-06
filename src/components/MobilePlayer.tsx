@@ -97,7 +97,7 @@ export function MobilePlayer({
             <Heart size={20} className={isLiked ? "fill-[#1DB954]" : ""} />
           </button>
 
-          {isPiPSupported && onTogglePiP && (
+          {onTogglePiP && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
