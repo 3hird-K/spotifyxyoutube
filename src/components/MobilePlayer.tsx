@@ -1,4 +1,4 @@
-import { Heart, Play, Pause, SkipForward, SkipBack } from "lucide-react";
+import { Heart, Play, Pause, SkipForward, SkipBack, PictureInPicture2 } from "lucide-react";
 import { Track } from "../data/tracks";
 
 interface MobilePlayerProps {
@@ -11,6 +11,9 @@ interface MobilePlayerProps {
   onTrackDetail: (t: Track) => void;
   onNext: () => void;
   onPrev: () => void;
+  onTogglePiP?: () => void;
+  isPiPSupported?: boolean;
+  isPiPActive?: boolean;
 }
 
 export function MobilePlayer({
@@ -23,6 +26,9 @@ export function MobilePlayer({
   onTrackDetail,
   onNext,
   onPrev,
+  onTogglePiP,
+  isPiPSupported,
+  isPiPActive,
 }: MobilePlayerProps) {
   if (!track) return null;
 
@@ -90,6 +96,19 @@ export function MobilePlayer({
           >
             <Heart size={20} className={isLiked ? "fill-[#1DB954]" : ""} />
           </button>
+
+          {isPiPSupported && onTogglePiP && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePiP();
+              }}
+              className={`p-2 transition-colors ${isPiPActive ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"}`}
+              title={isPiPActive ? "Exit background mode" : "Background play"}
+            >
+              <PictureInPicture2 size={18} />
+            </button>
+          )}
         </div>
       </div>
       <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-zinc-800 rounded-full overflow-hidden">

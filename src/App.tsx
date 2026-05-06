@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import YouTube from "react-youtube";
 import { usePlayer } from "./hooks/usePlayer";
+import { usePictureInPicture } from "./hooks/usePictureInPicture";
 import Sidebar from "./components/Sidebar";
 import PlayerBar from "./components/PlayerBar";
 import MainContent from "./components/MainContent";
@@ -51,6 +52,7 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const player = usePlayer([], user);
+  const pip = usePictureInPicture(player.isPlaying, player.currentTrack);
   const { followedArtists, toggleFollowArtist, isFollowing } = useFollowedArtists(user);
   const initialVideoIdRef = useRef<string | null>(null);
   if (player.currentTrack && !initialVideoIdRef.current) {
@@ -813,6 +815,9 @@ export default function App() {
             onTrackDetail={handleTrackDetail}
             onNext={() => player.handleNext()}
             onPrev={player.handlePrev}
+            onTogglePiP={pip.togglePiP}
+            isPiPSupported={pip.isPiPSupported}
+            isPiPActive={pip.isPiPActive}
           />
 
           {/* Mobile Nav */}
