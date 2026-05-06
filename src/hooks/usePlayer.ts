@@ -32,6 +32,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const lastPokedTrackIdRef = useRef<string | null>(null);
   const lastStuckTimeRef = useRef<number>(Date.now());
   const volumeRef = useRef<number>(volume);
+  const intentionalPauseRef = useRef<boolean>(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
@@ -113,6 +114,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         const state = p.getPlayerState();
         const track = currentTrackRef.current;
 
+        // CRITICAL: Never force play if the user intentionally paused
+        if (intentionalPauseRef.current) return;
+
         if (isPlayingRef.current && track) {
           if (state === 1) {
             lastStuckTimeRef.current = Date.now();
@@ -140,7 +144,6 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
             // First time seeing this track? Load it.
             if (isNewTrack) {
-              // console.log(`[BG] NEW TRACK (${track.title}) -> load + play`);
               p.loadVideoById(track.youtubeId);
               setTimeout(() => p.playVideo(), 100);
               lastPokedTrackIdRef.current = track.youtubeId;
@@ -148,7 +151,6 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
             }
             // Stuck on same track? Only NUKE IT if it has been unstarted for more than 10 seconds
             else if (Date.now() - lastStuckTimeRef.current > 10000) {
-              // console.log(`[BG] STUCK in ${state} for too long -> 💥 WAKE UP 💥`);
               wakeUpPlayer();
               lastStuckTimeRef.current = Date.now();
             }
@@ -183,6 +185,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
     const runAttempt = (delay: number) => {
       const t = setTimeout(() => {
+        // CRITICAL: Abort if user intentionally paused
+        if (intentionalPauseRef.current || !isPlayingRef.current) return;
+
         try {
           const p = playerRef.current;
           if (!p || typeof p.getIframe !== 'function' || !p.getIframe()) return;
@@ -191,14 +196,12 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
           // If we are hidden and stuck in unstarted, USE THE NUKE
           if (isHidden && state === -1) {
-            // console.log(`[KickPlay] Background stuck in ${state}, NUKING with mute/play`);
             p.mute();
             p.playVideo();
             setTimeout(() => p.unMute(), 150);
           }
           // Normal poke
           else if (state !== undefined && state !== 1 && state !== 3) {
-            // console.log(`[KickPlay] State ${state} -> forcing playVideo`);
             p.playVideo();
           }
         } catch { }
@@ -367,9 +370,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         startTimer();
       } else if (event.data === 2) {
         // Paused
-        if (document.hidden && isPlayingRef.current) {
+        // Only fight a background pause if user did NOT intentionally pause
+        if (document.hidden && isPlayingRef.current && !intentionalPauseRef.current) {
           // Chrome/Android forced a background pause. FIGHT BACK!
-          // We must Mute -> Play -> Unmute to bypass the background autoplay block.
           try {
             event.target.mute();
             event.target.playVideo();
@@ -381,8 +384,10 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         }
         
         setIsPlaying(false);
+        isPlayingRef.current = false;
         clearTimer();
         clearPlaybackSafetyTimeout();
+        clearPlayRetryTimeouts();
       } else if (event.data === 0) {
         // Ended
         // console.log("Track ended, moving to next...");
@@ -611,9 +616,17 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       const next = !prev;
       isPlayingRef.current = next; // Immediately sync intention
 
+      if (next) {
+        // PLAYING
+        intentionalPauseRef.current = false;
+      } else {
+        // PAUSING - set flag BEFORE calling pauseVideo
+        intentionalPauseRef.current = true;
+      }
+
       try {
         if (next) {
-          playerRef.current?.unMute(); // Synchronous unmute
+          playerRef.current?.unMute();
           playerRef.current?.setVolume(volume * 100);
           playerRef.current?.playVideo();
           trackStartWallTimeRef.current = Date.now() - currentTimeRef.current * 1000;
@@ -621,6 +634,8 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
           startTimer();
           kickPlay();
         } else {
+          // Cancel ALL pending play attempts first
+          clearPlayRetryTimeouts();
           playerRef.current?.pauseVideo();
           clearTimer();
           clearPlaybackSafetyTimeout();
@@ -666,7 +681,8 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   }, [isPlaying, resumeAudioContext]);
 
   const selectTrack = useCallback((index: number) => {
-    backgroundPlayback.initSilentAudio(); // Synchronous init
+    intentionalPauseRef.current = false;
+    backgroundPlayback.initSilentAudio();
     setCurrentTime(0);
     setProgress(0);
     currentTimeRef.current = 0;
@@ -677,7 +693,8 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   }, [backgroundPlayback]);
 
   const playArbitraryTrack = useCallback((track: Track, contextQueue?: Track[]) => {
-    backgroundPlayback.initSilentAudio(); // Synchronous init
+    intentionalPauseRef.current = false;
+    backgroundPlayback.initSilentAudio();
     setCurrentTime(0);
     setProgress(0);
     currentTimeRef.current = 0;
@@ -888,6 +905,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     const nav = navigator.mediaSession;
 
     nav.setActionHandler("play", () => {
+      intentionalPauseRef.current = false;
       setIsPlaying(true);
       isPlayingRef.current = true;
       playerRef.current?.playVideo();
@@ -896,9 +914,11 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     });
 
     nav.setActionHandler("pause", () => {
-      setIsPlaying(false);
+      intentionalPauseRef.current = true;
       isPlayingRef.current = false;
+      clearPlayRetryTimeouts();
       playerRef.current?.pauseVideo();
+      setIsPlaying(false);
     });
 
     nav.setActionHandler("nexttrack", () => nextRef.current());
