@@ -27,23 +27,6 @@ export function useBackgroundPlayback(
       return;
     }
 
-    // Android PWA Background Hack: Play a silent native HTML5 audio element
-    // This forces Android Chrome to grant Media Session priority and keep the WebView alive
-    if (!silentAudioRef.current) {
-      // 100ms silent MP3 base64
-      const SILENT_AUDIO_SRC = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//MUXxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
-      const audio = new Audio(SILENT_AUDIO_SRC);
-      audio.loop = true;
-      audio.volume = 0.01;
-      // Allow playing inline and across background/lock screen
-      audio.setAttribute('playsinline', 'true');
-      silentAudioRef.current = audio;
-    }
-    
-    silentAudioRef.current.play().catch((e) => {
-      console.warn("Background silent audio trick failed:", e);
-    });
-
     if (!audioContextRef.current) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
@@ -195,8 +178,26 @@ export function useBackgroundPlayback(
     playbackStartTimeRef.current = Date.now();
   }, []);
 
+  const initSilentAudio = useCallback(() => {
+    if (typeof window === "undefined") return;
+    
+    if (!silentAudioRef.current) {
+      const SILENT_AUDIO_SRC = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//MUXxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+      const audio = new Audio(SILENT_AUDIO_SRC);
+      audio.loop = true;
+      audio.volume = 0.01;
+      audio.setAttribute('playsinline', 'true');
+      silentAudioRef.current = audio;
+    }
+    
+    try {
+      silentAudioRef.current.play().catch(() => {});
+    } catch {}
+  }, []);
+
   return useMemo(() => ({
     resetPlaybackTimer,
+    initSilentAudio,
     isTabActive: isTabActiveRef.current
-  }), [resetPlaybackTimer]);
+  }), [resetPlaybackTimer, initSilentAudio]);
 }

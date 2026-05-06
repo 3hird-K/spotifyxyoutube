@@ -365,13 +365,6 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         setIsPlaying(true);
         trackStartWallTimeRef.current = Date.now() - currentTimeRef.current * 1000;
         startTimer();
-
-        setTimeout(() => {
-          try {
-            event.target.unMute();
-            event.target.setVolume(volumeRef.current * 100);
-          } catch { }
-        }, 150);
       } else if (event.data === 2) {
         // Paused
         if (document.hidden && isPlayingRef.current) {
@@ -612,6 +605,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     }
 
     resumeAudioContext();
+    backgroundPlayback.initSilentAudio(); // MUST BE SYNCHRONOUS!
 
     setIsPlaying((prev) => {
       const next = !prev;
@@ -619,6 +613,8 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
       try {
         if (next) {
+          playerRef.current?.unMute(); // Synchronous unmute
+          playerRef.current?.setVolume(volume * 100);
           playerRef.current?.playVideo();
           trackStartWallTimeRef.current = Date.now() - currentTimeRef.current * 1000;
           backgroundPlayback.resetPlaybackTimer();
@@ -670,6 +666,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   }, [isPlaying, resumeAudioContext]);
 
   const selectTrack = useCallback((index: number) => {
+    backgroundPlayback.initSilentAudio(); // Synchronous init
     setCurrentTime(0);
     setProgress(0);
     currentTimeRef.current = 0;
@@ -680,6 +677,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   }, [backgroundPlayback]);
 
   const playArbitraryTrack = useCallback((track: Track, contextQueue?: Track[]) => {
+    backgroundPlayback.initSilentAudio(); // Synchronous init
     setCurrentTime(0);
     setProgress(0);
     currentTimeRef.current = 0;
@@ -728,6 +726,9 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const handleNext = useCallback((auto = false) => {
     resumeAudioContext();
+    if (!auto) {
+      backgroundPlayback.initSilentAudio(); // Synchronous init if user clicked
+    }
     clearPlaybackGuards();
 
     // CRITICAL: Reset poke tracker so background worker treats it as new track
@@ -783,6 +784,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const handlePrev = useCallback(() => {
     resumeAudioContext();
+    backgroundPlayback.initSilentAudio(); // Synchronous init
 
     if (currentTimeRef.current > 3) {
       try {
