@@ -5,9 +5,7 @@ export const searchDeezerMusic = async (query: string): Promise<Track[]> => {
   if (!query) return [];
 
   try {
-    const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.org/?https://api.deezer.com" 
-      : "/api/deezer";
+    const baseUrl = "/api/deezer";
       
     let url = `${baseUrl}/search`;
     let params: any = { q: query, limit: 50 };
@@ -46,9 +44,7 @@ export const searchDeezerArtistPicture = async (artistName: string): Promise<str
   if (!artistName) return undefined;
   
   try {
-    const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.org/?https://api.deezer.com" 
-      : "/api/deezer";
+    const baseUrl = "/api/deezer";
       
     const url = `${baseUrl}/search/artist`;
     const response = await axios.get(url, { params: { q: artistName, limit: 1 } });
@@ -67,9 +63,7 @@ export const searchDeezerArtists = async (query: string): Promise<any[]> => {
   if (!query) return [];
   
   try {
-    const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.org/?https://api.deezer.com" 
-      : "/api/deezer";
+    const baseUrl = "/api/deezer";
       
     const url = `${baseUrl}/search/artist`;
     const response = await axios.get(url, { params: { q: query, limit: 3 } });

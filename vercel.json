@@ -9,5 +9,15 @@
                 }
             ]
         }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/deezer/:match*",
+            "destination": "https://api.deezer.com/:match*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
     ]
 }
