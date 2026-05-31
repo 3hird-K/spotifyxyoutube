@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useEffect, useState } from "react";
-import { searchYouTubeMusic } from "../utils/youtube";
+import { searchDeezerMusic } from "../utils/deezer";
 import { Track } from "../data/tracks";
 
 export const useSearchMusic = (query: string, enabled: boolean = true) => {
@@ -22,7 +22,7 @@ export const useSearchMusic = (query: string, enabled: boolean = true) => {
     queryKey: ["searchMusic", debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery.trim()) return [];
-      return searchYouTubeMusic(debouncedQuery);
+      return searchDeezerMusic(debouncedQuery);
     },
     enabled: enabled && debouncedQuery.trim().length > 2, // Start searching after 2 characters
     staleTime: 1000 * 60 * 5, // 5 minutes

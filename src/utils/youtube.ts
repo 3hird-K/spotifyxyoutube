@@ -2,10 +2,44 @@ import { supabase } from "../lib/supabase";
 import axios from "axios";
 import { Track } from "../data/tracks";
 
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+const API_KEYS = [
+  import.meta.env.VITE_YOUTUBE_API_KEY,
+  import.meta.env.VITE_YOUTUBE_API_KEY_2,
+  import.meta.env.VITE_YOUTUBE_API_KEY_3,
+].filter(Boolean);
+
+let currentKeyIndex = 0;
+const getApiKey = () => API_KEYS[currentKeyIndex];
+
+const rotateApiKey = () => {
+  if (API_KEYS.length > 1) {
+    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+    console.warn(`YouTube API quota exceeded. Rotated to API Key index ${currentKeyIndex}`);
+  }
+};
+
+const axiosGetWithKeyRotation = async (url: string, options: any, retries = Math.max(1, API_KEYS.length)): Promise<any> => {
+  if (API_KEYS.length === 0) {
+    console.error("No YouTube API keys configured. Check your .env file.");
+    throw new Error("No YouTube API keys configured.");
+  }
+  try {
+    if (!options.params) options.params = {};
+    options.params.key = getApiKey();
+    return await axios.get(url, options);
+  } catch (err: any) {
+    if ((err.response?.status === 403 || err.response?.status === 429) && retries > 1) {
+      rotateApiKey();
+      return axiosGetWithKeyRotation(url, options, retries - 1);
+    }
+    throw err;
+  }
+};
+
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
 const inMemoryCache: Record<string, any> = {};
+const inFlightRequests: Record<string, Promise<any> | undefined> = {};
 
 /* -----------------------------
    UTIL: ISO duration parser
@@ -46,12 +80,29 @@ const mapToTrack = (video: any, albumName: string): Track => ({
    CORE SEARCH FUNCTION
    (+ optional recommendation mode)
 ------------------------------ */
+
 export const searchYouTubeMusic = async (
   query: string,
   options?: { mode?: "search" | "recommend"; videoId?: string }
 ): Promise<Track[]> => {
+  const trimmedQuery = query.trim().toLowerCase();
+  const cacheKey = options?.mode === "recommend" ? `rec:${options?.videoId}` : trimmedQuery;
+  
+  if (inFlightRequests[cacheKey]) {
+    return inFlightRequests[cacheKey];
+  }
+  
+  const promise = executeSearch(query, options);
+  inFlightRequests[cacheKey] = promise;
+  return promise;
+};
 
-  if (!API_KEY) {
+// Extracted the actual implementation to executeSearch to make wrapper clean
+const executeSearch = async (
+  query: string,
+  options?: { mode?: "search" | "recommend"; videoId?: string }
+): Promise<Track[]> => {
+  if (API_KEYS.length === 0) {
     console.error("YouTube API Key is missing. Check your .env file.");
     return [];
   }
@@ -99,11 +150,10 @@ export const searchYouTubeMusic = async (
     if (options?.mode === "recommend" && options.videoId) {
       // Since relatedToVideoId is deprecated and returns 400, 
       // we first fetch the video title/artist to perform a search for similar content.
-      const videoDetail = await axios.get(`${BASE_URL}/videos`, {
+      const videoDetail = await axiosGetWithKeyRotation(`${BASE_URL}/videos`, {
         params: {
           part: "snippet",
           id: options.videoId,
-          key: API_KEY,
         },
       });
 
@@ -116,27 +166,25 @@ export const searchYouTubeMusic = async (
         searchQuery = `${title} ${channel} similar songs`;
       }
 
-      let search = await axios.get(`${BASE_URL}/search`, {
+      let search = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
-          maxResults: 40,
+          maxResults: 50,
           q: searchQuery,
           type: "video",
           videoCategoryId: "10",
-          key: API_KEY,
           fields: "items(id/videoId)"
         },
       });
 
       let items = search.data?.items || [];
       if (items.length === 0) {
-        search = await axios.get(`${BASE_URL}/search`, {
+        search = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
           params: {
             part: "snippet",
-            maxResults: 40,
+            maxResults: 50,
             q: searchQuery,
             type: "video",
-            key: API_KEY,
             fields: "items(id/videoId)"
           },
         });
@@ -149,11 +197,10 @@ export const searchYouTubeMusic = async (
         .join(",");
 
       if (videoIds) {
-        const videos = await axios.get(`${BASE_URL}/videos`, {
+        const videos = await axiosGetWithKeyRotation(`${BASE_URL}/videos`, {
           params: {
             part: "snippet,contentDetails",
             id: videoIds,
-            key: API_KEY,
             fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
           },
         });
@@ -167,27 +214,25 @@ export const searchYouTubeMusic = async (
        3. NORMAL SEARCH MODE
     ========================= */
     else {
-      let search = await axios.get(`${BASE_URL}/search`, {
+      let search = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
-          maxResults: 40,
+          maxResults: 50,
           q: trimmedQuery,
           type: "video",
           videoCategoryId: "10",
-          key: API_KEY,
           fields: "items(id/videoId)"
         },
       });
 
       let items = search.data?.items || [];
       if (items.length === 0) {
-        search = await axios.get(`${BASE_URL}/search`, {
+        search = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
           params: {
             part: "snippet",
-            maxResults: 40,
+            maxResults: 50,
             q: trimmedQuery,
             type: "video",
-            key: API_KEY,
             fields: "items(id/videoId)"
           },
         });
@@ -200,11 +245,10 @@ export const searchYouTubeMusic = async (
         .join(",");
 
       if (videoIds) {
-        const videos = await axios.get(`${BASE_URL}/videos`, {
+        const videos = await axiosGetWithKeyRotation(`${BASE_URL}/videos`, {
           params: {
             part: "snippet,contentDetails",
             id: videoIds,
-            key: API_KEY,
             fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
           },
         });
@@ -239,11 +283,13 @@ export const searchYouTubeMusic = async (
   } catch (error) {
     console.error("YouTube API Error:", error);
     return [];
+  } finally {
+    delete inFlightRequests[cacheKey];
   }
 };
 
 export const getArtistDetails = async (channelId: string): Promise<{ subscriberCount?: string; viewCount?: string; thumbnailUrl?: string }> => {
-  if (!API_KEY || !channelId) return {};
+  if (API_KEYS.length === 0 || !channelId) return {};
   try {
     // 1. Check cache first
     const { data: cached } = await supabase
@@ -264,11 +310,10 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
     }
 
     // 2. Not cached, fetch from API
-    const res = await axios.get(`${BASE_URL}/channels`, {
+    const res = await axiosGetWithKeyRotation(`${BASE_URL}/channels`, {
       params: {
         part: "snippet,statistics",
         id: channelId,
-        key: API_KEY,
       }
     });
     const channel = res.data?.items?.[0];
@@ -312,140 +357,17 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
   return {};
 };
 
-export const searchYouTubeArtistThumbnail = async (artistName: string): Promise<string | undefined> => {
-  if (!API_KEY || !artistName) return undefined;
-  try {
-    const trimmed = artistName.trim().toLowerCase();
-
-    // 1. Check cache first
-    const { data: cached } = await supabase
-      .from("youtube_artist_cache")
-      .select("thumbnail_url, created_at")
-      .eq("artist_name", trimmed)
-      .maybeSingle();
-
-    if (cached) {
-      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
-      if (isFresh && cached.thumbnail_url) {
-        return cached.thumbnail_url;
-      }
-    }
-
-    // 2. Not cached, fetch from API
-    const res = await axios.get(`${BASE_URL}/search`, {
-      params: {
-        part: "snippet",
-        maxResults: 1,
-        q: `${artistName} Official Channel`,
-        type: "channel",
-        key: API_KEY,
-      },
-    });
-    const item = res.data?.items?.[0];
-    if (item && item.snippet?.thumbnails?.high?.url) {
-      const thumb = item.snippet.thumbnails.high.url;
-
-      // 3. Save to cache
-      const { data: existing } = await supabase
-        .from("youtube_artist_cache")
-        .select("id")
-        .eq("artist_name", trimmed)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from("youtube_artist_cache").update({
-          channel_id: item.id?.channelId || `id:${trimmed}`,
-          thumbnail_url: thumb,
-          created_at: new Date().toISOString(),
-        }).eq("id", existing.id);
-      } else {
-        await supabase.from("youtube_artist_cache").insert({
-          artist_name: trimmed,
-          channel_id: item.id?.channelId || `id:${trimmed}`,
-          thumbnail_url: thumb,
-          created_at: new Date().toISOString(),
-        });
-      }
-
-      return thumb;
-    }
-  } catch (err) {
-    console.error("Error searching channel:", err);
-  }
+export const searchYouTubeArtistThumbnail = async (_artistName: string): Promise<string | undefined> => {
   return undefined;
 };
 
-export const getOrFetchArtistChannelId = async (artistName: string): Promise<string | null> => {
-  if (!API_KEY || !artistName) return null;
-  const trimmed = artistName.trim().toLowerCase();
-
-  try {
-    // 1. Check in-memory cache
-    if (inMemoryCache[`channel:${trimmed}`]) {
-      return inMemoryCache[`channel:${trimmed}`];
-    }
-
-    // 2. Check Supabase cache
-    const { data: cached } = await supabase
-      .from("youtube_artist_cache")
-      .select("channel_id")
-      .eq("artist_name", trimmed)
-      .maybeSingle();
-
-    if (cached && cached.channel_id && !cached.channel_id.startsWith("id:")) {
-      inMemoryCache[`channel:${trimmed}`] = cached.channel_id;
-      return cached.channel_id;
-    }
-
-    // 3. Not cached, fetch from YouTube API
-    const res = await axios.get(`${BASE_URL}/search`, {
-      params: {
-        part: "snippet",
-        maxResults: 1,
-        q: `${artistName} Official Channel`,
-        type: "channel",
-        key: API_KEY,
-      },
-    });
-
-    const item = res.data?.items?.[0];
-    if (item && item.id?.channelId) {
-      const channelId = item.id.channelId;
-
-      // 4. Update Supabase cache
-      const { data: existing } = await supabase
-        .from("youtube_artist_cache")
-        .select("id")
-        .eq("artist_name", trimmed)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from("youtube_artist_cache").update({
-          channel_id: channelId,
-          thumbnail_url: item.snippet?.thumbnails?.high?.url,
-          created_at: new Date().toISOString(),
-        }).eq("id", existing.id);
-      } else {
-        await supabase.from("youtube_artist_cache").insert({
-          artist_name: trimmed,
-          channel_id: channelId,
-          thumbnail_url: item.snippet?.thumbnails?.high?.url,
-          created_at: new Date().toISOString(),
-        });
-      }
-
-      inMemoryCache[`channel:${trimmed}`] = channelId;
-      return channelId;
-    }
-  } catch (err) {
-    console.error("Error fetching channel ID:", err);
-  }
-
+export const getOrFetchArtistChannelId = async (_artistName: string): Promise<string | null> => {
   return null;
 };
 
+
 export const getMostPopularArtistTrack = async (artistName: string): Promise<Track | undefined> => {
-  if (!API_KEY || !artistName) return undefined;
+  if (API_KEYS.length === 0 || !artistName) return undefined;
   const trimmed = artistName.trim().toLowerCase();
   const cacheKey = `popular:${trimmed}`;
 
@@ -474,7 +396,7 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
     }
 
     // 3. Not cached or expired, fetch from YouTube API
-    const res = await axios.get(`${BASE_URL}/search`, {
+    const res = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
       params: {
         part: "snippet",
         maxResults: 1,
@@ -482,17 +404,15 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
         type: "video",
         order: "viewCount",
         videoCategoryId: "10",
-        key: API_KEY,
       },
     });
 
     const item = res.data?.items?.[0];
     if (item && item.id?.videoId) {
-      const videos = await axios.get(`${BASE_URL}/videos`, {
+      const videos = await axiosGetWithKeyRotation(`${BASE_URL}/videos`, {
         params: {
           part: "snippet,contentDetails",
           id: item.id.videoId,
-          key: API_KEY,
           fields: "items(id,snippet(title,channelTitle,channelId,thumbnails,publishedAt,description),contentDetails(duration))"
         },
       });
@@ -525,7 +445,7 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
 };
 
 export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
-  if (!API_KEY || !query) return [];
+  if (API_KEYS.length === 0 || !query) return [];
   const trimmed = query.trim().toLowerCase();
   const cacheKey = `artist-search:${trimmed}`;
 
@@ -551,13 +471,12 @@ export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
     }
 
     // 3. Not cached or expired, fetch from YouTube API
-    const res = await axios.get(`${BASE_URL}/search`, {
+    const res = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
       params: {
         part: "snippet",
         maxResults: 3,
         q: trimmed,
         type: "channel",
-        key: API_KEY,
       },
     });
 
@@ -589,4 +508,73 @@ export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
     console.error("Error searching artists:", err);
     return [];
   }
+};
+
+export const resolveYouTubeId = async (query: string): Promise<string | null> => {
+  if (API_KEYS.length === 0) return null;
+  
+  const cacheKey = `resolve:${query}`;
+  if (inMemoryCache[cacheKey]) return inMemoryCache[cacheKey][0] as string;
+
+  if (inFlightRequests[cacheKey]) {
+    return inFlightRequests[cacheKey];
+  }
+
+  const promise = (async () => {
+    try {
+    // Check Supabase cache
+    const { data: cachedData, error: cacheError } = await supabase
+      .from("youtube_search_cache")
+      .select("results")
+      .eq("query", cacheKey)
+      .maybeSingle();
+
+    if (cachedData && !cacheError && cachedData.results) {
+      const results = cachedData.results as string[];
+      if (results && results.length > 0) {
+        inMemoryCache[cacheKey] = results as any;
+        return results[0];
+      }
+    }
+
+    const res = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
+      params: {
+        part: "snippet",
+        maxResults: 1,
+        q: query,
+        type: "video",
+        videoCategoryId: "10",
+        fields: "items(id/videoId)"
+      },
+    });
+
+    const videoId = res.data?.items?.[0]?.id?.videoId;
+    if (videoId) {
+      inMemoryCache[cacheKey] = [videoId] as any;
+      
+      // Update Supabase cache
+      await supabase
+        .from("youtube_search_cache")
+        .upsert(
+          {
+            query: cacheKey,
+            results: [videoId] as any,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "query" }
+        );
+
+      return videoId;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error resolving YouTube ID:", error);
+    return null;
+  } finally {
+    delete inFlightRequests[cacheKey];
+  }
+  })();
+  
+  inFlightRequests[cacheKey] = promise;
+  return promise;
 };

@@ -3,6 +3,7 @@ import { Track } from "../data/tracks";
 import type { YouTubeEvent, YouTubePlayer } from "react-youtube";
 import { supabase } from "../lib/supabase";
 import { useBackgroundPlayback } from "./useBackgroundPlayback";
+import { resolveYouTubeId } from "../utils/youtube";
 
 export type RepeatMode = "none" | "one" | "all";
 
@@ -349,15 +350,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
 
   const onPlayerStateChange = useCallback(
     (event: YouTubeEvent) => {
-      const stateMap: Record<number, string> = {
-        "-1": "Unstarted",
-        0: "Ended",
-        1: "Playing",
-        2: "Paused",
-        3: "Buffering",
-        5: "Cued"
-      };
-      // console.log("Player state changed:", event.data, stateMap[event.data as number] || "Unknown");
+      // console.log("Player state changed:", event.data);
 
       if (event.data === 1) {
         // Playing
@@ -466,6 +459,30 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [resumeAudioContext, startTimer]);
+
+  // Lazy resolve youtubeId if missing
+  useEffect(() => {
+    let isMounted = true;
+    
+    if (currentTrack && !currentTrack.youtubeId && currentTrack.id.startsWith("deezer-")) {
+      const resolveId = async () => {
+        const query = `${currentTrack.title} ${currentTrack.artist} official audio`;
+        const videoId = await resolveYouTubeId(query);
+        if (isMounted && videoId) {
+          setQueue((prevQueue) => {
+            const newQueue = [...prevQueue];
+            newQueue[currentIndex] = { ...currentTrack, youtubeId: videoId, youtubeUrl: `https://www.youtube.com/watch?v=${videoId}` };
+            return newQueue;
+          });
+        }
+      };
+      resolveId();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [currentTrack, currentIndex]);
 
   // Load / cue the current track whenever it changes
   useEffect(() => {

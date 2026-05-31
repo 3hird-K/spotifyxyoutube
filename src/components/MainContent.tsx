@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  Search, Play, Clock, Heart, Loader2, Trash2, ListMusic, Shuffle, Repeat, Repeat1, Pause,
-  Plus, UserMinus, UserPlus
+  Search, Play, Clock, Heart, Trash2, ListMusic, Shuffle, Repeat, Repeat1
 } from "lucide-react";
 import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { useSearchMusic } from "../hooks/useSearchMusic";
-import { searchYouTubeMusic, getArtistDetails, searchYouTubeArtistThumbnail } from "../utils/youtube";
-import axios from "axios";
+import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
+import { searchDeezerMusic, searchDeezerArtistPicture } from "../utils/deezer";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useFollowedArtists } from "../hooks/useFollowedArtists";
@@ -19,13 +18,14 @@ import { ArtistDetailView } from "./ArtistDetailView";
 import { TrackRow } from "./TrackRow";
 import { HomeCard } from "./HomeCard";
 import { MobileHomeView } from "./MobileHomeView";
-import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HorizontalScrollSection } from "./HorizontalScrollSection";
 import { MusicLoader } from "./MusicLoader";
+
+const EMPTY_TRACKS: Track[] = [];
 
 interface MainContentProps {
   currentTrack: Track | null;
@@ -51,18 +51,12 @@ interface MainContentProps {
   onTrackDetail: (track: Track) => void;
   recentlyPlayed: Track[];
   user: any;
-  onCreatePlaylist: (name: string) => void;
   onDeletePlaylist: (playlist: Playlist) => void;
-  onEditPlaylist: (playlist: Playlist) => void;
   isShuffle: boolean;
   repeatMode: RepeatMode;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
-  onSearchArtist?: (query: string) => void;
-  showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
-  recentSearches?: string[];
-  recentSearchTracks?: Track[];
 }
 
 const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void; isFollowing?: boolean }) => {
@@ -92,7 +86,7 @@ const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; 
           setRealThumbnail(data.thumbnailUrl);
         }
       } else if (isMounted) {
-        const thumbnail = await searchYouTubeArtistThumbnail(artist.name);
+        const thumbnail = await searchDeezerArtistPicture(artist.name);
         if (isMounted && thumbnail) {
           setRealThumbnail(thumbnail);
         }
@@ -141,14 +135,7 @@ const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; 
   );
 };
 
-const getInitials = (name: string) => {
-  if (!name) return "";
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-};
+
 
 export default function MainContent(props: MainContentProps) {
   const {
@@ -156,16 +143,12 @@ export default function MainContent(props: MainContentProps) {
     onTogglePlay, onQueueChange, onQueueUpdateOnly, activeView, setActiveView,
     playlists, onAddToPlaylist, onRemoveFromPlaylist, activePlaylist,
     onOpenSearch, searchResults, selectedTrackDetail, onTrackDetail,
-    recentlyPlayed, user, onCreatePlaylist, onDeletePlaylist, onEditPlaylist,
+    recentlyPlayed, user, onDeletePlaylist,
     isShuffle,
     repeatMode,
     onToggleShuffle,
     onToggleRepeat,
-    onSearchArtist,
-    showCreateModal,
     setShowCreateModal,
-    recentSearches,
-    recentSearchTracks,
   } = props;
 
   const [selectedGenre, setSelectedGenre] = useState("All");
@@ -194,7 +177,7 @@ export default function MainContent(props: MainContentProps) {
   const shouldFetchTrending = activeView === "home";
 
   const trendingQuery =
-    selectedGenre !== "All" ? `${selectedGenre} popular hit singles official music video` : "top popular hit singles official music video";
+    selectedGenre !== "All" ? `${selectedGenre} top single` : "__CHART_ALL__";
 
   const isCompilation = (title: string) => {
     const t = title.toLowerCase();
@@ -216,13 +199,18 @@ export default function MainContent(props: MainContentProps) {
     );
   };
 
-  const { data: rawApiTracks = [], isLoading: isTrendingLoading } = useSearchMusic(
+  const { data: rawApiTracks = EMPTY_TRACKS, isLoading: isTrendingLoading } = useSearchMusic(
     trendingQuery,
     shouldFetchTrending
   );
 
-  const apiTracks = rawApiTracks.filter(track => !isCompilation(track.title) && track.duration < 600);
-
+  const apiTracks = useMemo(() => {
+    return rawApiTracks.filter(track => {
+      const isVarious = track.artist.toLowerCase() === "various artists" || track.artist.toLowerCase().includes("various");
+      const isUnknown = track.artist.toLowerCase() === "unknown artist";
+      return !isCompilation(track.title) && track.duration < 600 && !isVarious && !isUnknown;
+    });
+  }, [rawApiTracks]);
 
 
   // Queue update — tightened deps
@@ -257,7 +245,7 @@ export default function MainContent(props: MainContentProps) {
         ];
 
         for (const name of fallbackArtists) {
-          if (artistsToFetch.length >= 15) break;
+          if (artistsToFetch.length >= 40) break;
           if (!artistsToFetch.includes(name)) {
             artistsToFetch.push(name);
           }
@@ -268,9 +256,9 @@ export default function MainContent(props: MainContentProps) {
         const seenIds = new Set<string>();
 
         for (const artistName of artistsToFetch) {
-          if (uniqueFiltered.length >= 15) break;
+          if (uniqueFiltered.length >= 40) break;
 
-          const results = await searchYouTubeMusic(`${artistName} official music`);
+          const results = await searchDeezerMusic(`${artistName}`);
           const filtered = (results || []).filter(t => !isCompilation(t.title));
 
           for (const t of filtered) {
@@ -284,11 +272,11 @@ export default function MainContent(props: MainContentProps) {
           }
         }
 
-        if (uniqueFiltered.length < 15) {
-          const fallbackResults = await searchYouTubeMusic("top chart official music video 2026");
+        if (uniqueFiltered.length < 40) {
+          const fallbackResults = await searchDeezerMusic("top charts");
           const filteredFallback = (fallbackResults || []).filter(t => !isCompilation(t.title));
           for (const t of filteredFallback) {
-            if (uniqueFiltered.length >= 15) break;
+            if (uniqueFiltered.length >= 40) break;
             const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
             if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
               seenTitles.add(lowerTitle);
@@ -299,7 +287,7 @@ export default function MainContent(props: MainContentProps) {
         }
 
         if (isMounted && uniqueFiltered.length > 0) {
-          setSuggestedSongs(uniqueFiltered.slice(0, 15));
+          setSuggestedSongs(uniqueFiltered.slice(0, 20));
         }
       } catch (err) {
         console.error("Error fetching suggested songs:", err);
@@ -307,7 +295,7 @@ export default function MainContent(props: MainContentProps) {
     };
     fetchSuggestedSongs();
     return () => { isMounted = false; };
-  }, [recentSearchTracks, recentSearches, recentlyPlayed, likedTracks, apiTracks, followedArtists]);
+  }, [followedArtists.length]);
 
   // Fetch recommended tracks
   useEffect(() => {
@@ -411,7 +399,7 @@ export default function MainContent(props: MainContentProps) {
     ];
 
     fallbackArtists.forEach((fa) => {
-      if (uniqueArtists.length >= 15) return;
+      if (uniqueArtists.length >= 20) return;
       const lower = fa.name.toLowerCase().trim();
       if (!isFollowed(fa.name) && !seenNames.has(lower)) {
         seenNames.add(lower);
@@ -419,7 +407,7 @@ export default function MainContent(props: MainContentProps) {
       }
     });
 
-    return uniqueArtists.slice(0, 15);
+    return uniqueArtists.slice(0, 40);
   })();
 
   // ─── Routing ───────────────────────────────────────────
@@ -432,17 +420,11 @@ export default function MainContent(props: MainContentProps) {
           tracks={apiTracks}
           recentlyPlayed={recentlyPlayed}
           playlists={playlists}
-          liked={liked}
-          currentTrack={currentTrack}
-          isPlaying={isPlaying}
           activePlaylist={activePlaylist}
           profile={profile}
           selectedGenre={selectedGenre}
           onGenreChange={setSelectedGenre}
           onSelect={(t) => onSelect(t, apiTracks)}
-          onToggleLike={onToggleLike}
-          onTogglePlay={onTogglePlay}
-          onTrackDetail={onTrackDetail}
           setActiveView={setActiveView}
           onOpenCreatePlaylist={() => setShowCreateModal(true)}
           onDeletePlaylist={onDeletePlaylist}
@@ -553,13 +535,34 @@ export default function MainContent(props: MainContentProps) {
       });
     };
 
+    const popularArtists: any[] = [];
+    const seenPopular = new Set<string>();
+    apiTracks.forEach(t => {
+      if (popularArtists.length >= 20) return;
+      const lower = t.artist.toLowerCase().trim();
+      if (!seenPopular.has(lower)) {
+        seenPopular.add(lower);
+        popularArtists.push({ name: t.artist, thumbnail: t.thumbnail });
+      }
+    });
+
     const suggested: any[] = [];
     const seenSuggested = new Set<string>();
 
+    // First use artists from suggestedSongs fetched from Deezer
+    suggestedSongs.forEach((t) => {
+      if (suggested.length >= 40) return;
+      const lower = t.artist.toLowerCase().trim();
+      if (!isFollowed(t.artist) && !seenSuggested.has(lower) && !seenPopular.has(lower)) {
+        seenSuggested.add(lower);
+        suggested.push({ name: t.artist, thumbnail: t.thumbnail });
+      }
+    });
+
     fallbackArtists.forEach((fa) => {
-      if (suggested.length >= 30) return;
+      if (suggested.length >= 40) return;
       const lower = fa.name.toLowerCase().trim();
-      if (!isFollowed(fa.name) && !seenSuggested.has(lower)) {
+      if (!isFollowed(fa.name) && !seenSuggested.has(lower) && !seenPopular.has(lower)) {
         seenSuggested.add(lower);
         suggested.push(fa);
       }
@@ -567,7 +570,7 @@ export default function MainContent(props: MainContentProps) {
 
     return (
       <div className="flex-1 overflow-y-auto bg-gradient-to-b from-zinc-900 to-zinc-950 p-6 sm:p-8 select-none">
-        <div className="pb-24 max-w-7xl mx-auto space-y-12">
+        <div className="pb-24 max-w-7xl mx-auto space-y-6 sm:space-y-8">
           {/* Header */}
           <div>
             <h1 className="text-3xl sm:text-4xl font-black text-white mb-2">Following</h1>
@@ -583,7 +586,7 @@ export default function MainContent(props: MainContentProps) {
           ) : (
             <HorizontalScrollSection title="Followed Artists">
               {followedArtists.map((fa) => (
-                <div key={fa.id} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
+                <div key={fa.id} className="shrink-0 w-[160px] sm:w-[200px]">
                   <ArtistCard
                     artist={fa}
                     onSelect={() => {
@@ -602,11 +605,33 @@ export default function MainContent(props: MainContentProps) {
             </HorizontalScrollSection>
           )}
 
+          {/* Most Popular Artists Section */}
+          {popularArtists.length > 0 && (
+            <HorizontalScrollSection title="Most popular artists">
+              {popularArtists.map((artist, idx) => (
+                <div key={`pop-${idx}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                  <ArtistCard
+                    artist={artist}
+                    onSelect={() => {
+                      setSelectedArtist({
+                        name: artist.name,
+                        thumbnail: artist.thumbnail,
+                      });
+                      setActiveView("artist-detail");
+                    }}
+                    onFollow={handleFollowArtist}
+                    isFollowing={isFollowing(artist.name)}
+                  />
+                </div>
+              ))}
+            </HorizontalScrollSection>
+          )}
+
           {/* Suggested Artists Section */}
           <HorizontalScrollSection title="Suggested artists for you">
-            <div className="grid grid-rows-3 grid-flow-col gap-4">
+            <div className="grid grid-rows-2 grid-flow-col">
               {suggested.map((artist, idx) => (
-                <div key={`sug-${idx}`} className="w-[160px] sm:w-[200px] h-full">
+                <div key={`sug-${idx}`} className="w-[160px] sm:w-[200px]">
                   <ArtistCard
                     artist={artist}
                     onSelect={() => {
@@ -628,7 +653,7 @@ export default function MainContent(props: MainContentProps) {
           {suggestedSongs.length > 0 && (
             <HorizontalScrollSection title="Suggested songs">
               {suggestedSongs.map((track) => (
-                <div key={track.id} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
+                <div key={track.id} className="shrink-0 w-[160px] sm:w-[200px]">
                   <HomeCard
                     track={track}
                     onSelect={(t) => onSelect(t, suggestedSongs)}
@@ -654,7 +679,6 @@ export default function MainContent(props: MainContentProps) {
         likedTracks={likedTracks}
         recentlyPlayed={recentlyPlayed}
         onSelectView={setActiveView}
-        onTrackDetail={onTrackDetail}
         onSelect={onSelect}
         onPlayPlaylist={(tracks) => {
           if (tracks.length > 0) {
@@ -915,6 +939,23 @@ export default function MainContent(props: MainContentProps) {
                   ))}
                 </div>
 
+                {/* Recommended Stations / Most Popular songs */}
+                <HorizontalScrollSection
+                  title="Most Popular songs"
+                // onShowAll={() => console.log("Show all recommended")}
+                >
+                  {apiTracks.slice(0, 40).map(track => (
+                    <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                      <HomeCard
+                        track={track}
+                        onSelect={(t) => onSelect(t, apiTracks)}
+                        title={track.title}
+                        subtitle={track.artist}
+                      />
+                    </div>
+                  ))}
+                </HorizontalScrollSection>
+
                 {/* Recommended artists */}
                 {suggestedArtists.length > 0 && (
                   <HorizontalScrollSection title="Recommended artists">
@@ -948,23 +989,6 @@ export default function MainContent(props: MainContentProps) {
                     ))}
                   </HorizontalScrollSection>
                 )}
-
-                {/* Recommended Stations */}
-                <HorizontalScrollSection
-                  title="Most Popular songs"
-                // onShowAll={() => console.log("Show all recommended")}
-                >
-                  {apiTracks.slice(0, 15).map(track => (
-                    <div key={`rec-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                      <HomeCard
-                        track={track}
-                        onSelect={(t) => onSelect(t, apiTracks)}
-                        title={track.artist}
-                        subtitle={`With ${track.title} and more`}
-                      />
-                    </div>
-                  ))}
-                </HorizontalScrollSection>
 
 
                 {recentlyPlayed.length > 0 && (

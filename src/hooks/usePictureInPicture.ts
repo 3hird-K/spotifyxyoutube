@@ -7,7 +7,6 @@ import { Track } from '../data/tracks';
  * keeping the browser process alive so the YouTube iframe audio continues.
  */
 export function usePictureInPicture(
-  isPlaying: boolean,
   currentTrack: Track | null
 ) {
   const videoRef = useRef<HTMLVideoElement | null>(null);

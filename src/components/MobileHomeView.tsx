@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-    Play, Pause, Heart, Trash2, ListMusic, LogOut, Menu, Plus,
+    Heart, Trash2, ListMusic, LogOut, Menu, Plus,
     Search, Download
 } from "lucide-react";
 import { Track } from "../data/tracks";
@@ -23,9 +23,6 @@ interface MobileHomeViewProps {
     tracks: Track[];
     recentlyPlayed: Track[];
     playlists: Playlist[];
-    liked: Set<string>;
-    currentTrack: Track | null;
-    isPlaying: boolean;
     activePlaylist: Playlist | null;
 
     // User
@@ -37,9 +34,6 @@ interface MobileHomeViewProps {
 
     // Actions
     onSelect: (track: Track, contextQueue?: Track[]) => void;
-    onToggleLike: (track: Track) => void;
-    onTogglePlay: () => void;
-    onTrackDetail: (track: Track) => void;
     setActiveView: (view: string) => void;
     onOpenCreatePlaylist: () => void;
     onDeletePlaylist: (playlist: Playlist) => void;
@@ -54,16 +48,10 @@ export function MobileHomeView({
     tracks,
     recentlyPlayed,
     playlists,
-    liked,
-    currentTrack,
-    isPlaying,
     activePlaylist,
     profile,
     onGenreChange,
     onSelect,
-    onToggleLike,
-    onTogglePlay,
-    onTrackDetail,
     setActiveView,
     onOpenCreatePlaylist,
     onDeletePlaylist,
@@ -235,22 +223,20 @@ export function MobileHomeView({
                     ))}
                 </div>
 
-                {/* Recommended */}
-                <Section title="Recommended for you">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 6).map((track) => (
-                            <MobileTrackCard key={track.id} track={track} onSelect={(t) => onSelect(t, tracks.length > 0 ? tracks : recentlyPlayed)} />
-                        ))}
-                    </div>
-                </Section>
-
-                {/* Made for you */}
-                <Section title="Made for You">
+                {/* Most Popular */}
+                <Section title="Most Popular songs">
                     <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
-                        {(suggestedSongs.length > 0 ? suggestedSongs : tracks).slice(0, 8).map((track) => (
+                        {(tracks.length > 0 ? tracks : recentlyPlayed).slice(0, 20).map((track) => (
                             <div
-                                key={track.id}
-                                onClick={() => onSelect(track, suggestedSongs.length > 0 ? suggestedSongs : tracks)}
+                                key={`popular-${track.id}`}
+                                onClick={() => {
+                                    if (setSelectedArtist) {
+                                        setSelectedArtist({ name: track.artist, thumbnail: track.thumbnail });
+                                        setActiveView("artist-detail");
+                                    } else {
+                                        onSelect(track, tracks.length > 0 ? tracks : recentlyPlayed);
+                                    }
+                                }}
                                 className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
                             >
                                 <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
@@ -264,12 +250,113 @@ export function MobileHomeView({
                                     {track.title}
                                 </p>
                                 <p className="text-[10px] font-medium text-zinc-400 line-clamp-2 px-0.5">
-                                    Mix featuring {track.artist}
+                                    {track.artist}
                                 </p>
                             </div>
                         ))}
                     </div>
                 </Section>
+
+                {/* Recommended Artists */}
+                {suggestedArtists && suggestedArtists.length > 0 && (
+                    <Section title="Recommended artists">
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                            {suggestedArtists.slice(0, 20).map((artist, idx) => {
+                                const currentThumbnail = artist.thumbnail || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name)}`;
+                                return (
+                                <div
+                                    key={`artist-rec-${idx}`}
+                                    onClick={() => {
+                                        if (setSelectedArtist) {
+                                            setSelectedArtist({
+                                                name: artist.name,
+                                                thumbnail: currentThumbnail,
+                                                youtubeArtistUrl: artist.youtubeArtistUrl
+                                            });
+                                            setActiveView("artist-detail");
+                                        }
+                                    }}
+                                    className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer items-center"
+                                >
+                                    <div className="relative w-full aspect-square rounded-full overflow-hidden bg-zinc-900 shadow-md">
+                                        <img
+                                            src={currentThumbnail}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            alt=""
+                                            onError={(e) => {
+                                                e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name)}`;
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-white truncate text-center w-full px-1">
+                                        {artist.name}
+                                    </p>
+                                    <p className="text-[10px] font-medium text-zinc-400 text-center w-full">
+                                        Artist
+                                    </p>
+                                </div>
+                            )})}
+                        </div>
+                    </Section>
+                )}
+
+                {/* Suggested Songs */}
+                {suggestedSongs && suggestedSongs.length > 0 && (
+                    <Section title="Suggested songs">
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                            {suggestedSongs.slice(0, 20).map((track) => (
+                                <div
+                                    key={`suggested-${track.id}`}
+                                    onClick={() => onSelect(track, suggestedSongs)}
+                                    className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
+                                >
+                                    <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
+                                        <img
+                                            src={track.thumbnail}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            alt=""
+                                        />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-white truncate px-0.5">
+                                        {track.title}
+                                    </p>
+                                    <p className="text-[10px] font-medium text-zinc-400 line-clamp-2 px-0.5">
+                                        {track.artist}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )}
+
+                {/* Recently Played */}
+                {recentlyPlayed && recentlyPlayed.length > 0 && (
+                    <Section title="Recently played">
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                            {recentlyPlayed.slice(0, 20).map((track) => (
+                                <div
+                                    key={`recent-${track.id}`}
+                                    onClick={() => onSelect(track, recentlyPlayed)}
+                                    className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
+                                >
+                                    <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
+                                        <img
+                                            src={track.thumbnail}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            alt=""
+                                        />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-white truncate px-0.5">
+                                        {track.title}
+                                    </p>
+                                    <p className="text-[10px] font-medium text-zinc-400 line-clamp-2 px-0.5">
+                                        {track.artist}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )}
             </div>
 
             {/* Removed FloatingNowPlaying bar from here as it is now global in App.tsx */}
@@ -316,45 +403,6 @@ function QuickPlaylistCard({
                 )}
             </div>
             <span className="text-[11px] font-bold text-white truncate pr-2">{name}</span>
-        </div>
-    );
-}
-
-function MobileTrackCard({
-    track,
-    onSelect,
-}: {
-    track: Track;
-    onSelect: (t: Track) => void;
-}) {
-    return (
-        <div
-            onClick={() => onSelect(track)}
-            className="flex flex-col gap-2 group cursor-pointer"
-        >
-            <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
-                <img
-                    src={track.thumbnail}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    alt=""
-                />
-                <button className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                    <Play size={14} className="text-black fill-black ml-0.5" />
-                </button>
-            </div>
-            <div className="px-0.5">
-                <p className="text-[11px] font-bold text-white truncate">{track.title}</p>
-                <p className="text-[10px] text-zinc-500 truncate" onClick={(e) => e.stopPropagation()}>
-                    <a
-                        href={track.youtubeArtistUrl || `https://music.youtube.com/search?q=${encodeURIComponent(track.artist)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-[#1DB954] hover:underline transition-colors"
-                    >
-                        {track.artist}
-                    </a>
-                </p>
-            </div>
         </div>
     );
 }

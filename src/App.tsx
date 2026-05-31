@@ -10,8 +10,9 @@ import SearchModal from "./components/SearchModal";
 import { useFollowedArtists } from "./hooks/useFollowedArtists";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
 import { MobilePlayer } from "./components/MobilePlayer";
+import { useSearchHistory } from "./hooks/useSearchHistory";
 import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
-import { PanelRightOpen, PanelRightClose, Home, Search, Library, LogIn, LogOut, Plus, ListMusic, Pencil, Users } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Home, Library, LogIn, LogOut, Plus, ListMusic, Users } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
 import { Playlist } from "./data/playlists";
@@ -41,8 +42,7 @@ export default function App() {
   const [showNowPlaying, setShowNowPlaying] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [recentSearchTracks, setRecentSearchTracks] = useState<Track[]>([]);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [playlistToEdit, setPlaylistToEdit] = useState<Playlist | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -52,8 +52,9 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const player = usePlayer([], user);
-  const pip = usePictureInPicture(player.isPlaying, player.currentTrack);
-  const { followedArtists, toggleFollowArtist, isFollowing } = useFollowedArtists(user);
+  const pip = usePictureInPicture(player.currentTrack);
+  const { toggleFollowArtist, isFollowing } = useFollowedArtists(user);
+  const { recentSearchTracks, recentSearches, addRecentSearch, removeRecentSearch } = useSearchHistory(user);
   const initialVideoIdRef = useRef<string | null>(null);
   if (player.currentTrack && !initialVideoIdRef.current) {
     initialVideoIdRef.current = player.currentTrack.youtubeId;
@@ -108,7 +109,8 @@ export default function App() {
     }
 
     let rafId: number = 0;
-    const updateDock = () => {
+    
+    const checkDock = () => {
       const dock = document.getElementById("sidebar-video-dock");
       if (dock && dock.offsetWidth > 0) {
         const rect = dock.getBoundingClientRect();
@@ -127,16 +129,23 @@ export default function App() {
       } else {
         setDockRect((prev) => (prev === null ? null : null));
       }
-      rafId = requestAnimationFrame(updateDock);
     };
 
-    rafId = requestAnimationFrame(updateDock);
-    window.addEventListener("resize", updateDock);
-    window.addEventListener("scroll", updateDock, true);
+    const loop = () => {
+      checkDock();
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    
+    // We can still listen to scroll/resize for immediate updates, 
+    // but they just call checkDock, not the rAF loop.
+    window.addEventListener("resize", checkDock);
+    window.addEventListener("scroll", checkDock, true);
 
     return () => {
-      window.removeEventListener("resize", updateDock);
-      window.removeEventListener("scroll", updateDock, true);
+      window.removeEventListener("resize", checkDock);
+      window.removeEventListener("scroll", checkDock, true);
       cancelAnimationFrame(rafId);
     };
   }, [showNowPlaying, isPip, player.currentTrack]);
@@ -220,40 +229,11 @@ export default function App() {
     });
   }, [player]);
 
-  const handleSelectFromSearch = useCallback(async (track: Track, query?: string) => {
+  const handleSelectFromSearch = useCallback(async (track: Track) => {
     handleSelectTrack(track);
+    addRecentSearch(track);
 
-    // Save search query if provided
-    if (query && query.trim()) {
-      const trimmed = query.trim();
-      setRecentSearches(prev => {
-        const filtered = prev.filter(q => q !== trimmed);
-        return [trimmed, ...filtered].slice(0, 10);
-      });
-
-      // Update recent search tracks (the actual item clicked)
-      setRecentSearchTracks(prev => {
-        const filtered = prev.filter(t => t.id !== track.id);
-        return [track, ...filtered].slice(0, 10);
-      });
-
-      if (user && !user.is_anonymous) {
-        // Save query
-        await supabase.from("recent_searches").insert({
-          user_id: user.id,
-          query: trimmed
-        });
-
-        // Save track item
-        await supabase.from("recent_search_items").upsert({
-          user_id: user.id,
-          track_id: track.id,
-          track_data: track as any,
-          created_at: new Date().toISOString()
-        }, { onConflict: 'user_id,track_id' });
-      }
-    }
-
+    // Save search query if provided (recently searched tracks feature removed)
     const related = await searchYouTubeMusic("", {
       mode: "recommend",
       videoId: track.youtubeId
@@ -273,26 +253,7 @@ export default function App() {
 
     // Go directly to track detail view to show recommendations
     handleTrackDetail(track);
-  }, [player, handleTrackDetail, user, handleSelectTrack]);
-
-  const handleRemoveRecentSearch = useCallback(async (trackId: string) => {
-    setRecentSearchTracks(prev => prev.filter(t => t.id !== trackId));
-
-    if (user && !user.is_anonymous) {
-      await supabase
-        .from("recent_search_items")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("track_id", trackId);
-    }
-  }, [user]);
-
-  const handleSearchArtist = useCallback(async (query: string) => {
-    setActiveView("search-results");
-    const results = await searchYouTubeMusic(query);
-    setSearchResults(results);
-    player.setQueue(results);
-  }, [player]);
+  }, [player, handleTrackDetail, user, handleSelectTrack, addRecentSearch]);
 
   // Sync playlists from Supabase if logged in
   useEffect(() => {
@@ -337,51 +298,6 @@ export default function App() {
   }, [playlists, recentlyPlayed, user]);
 
   // Sync recent searches from Supabase if logged in
-  useEffect(() => {
-    if (!user || user.is_anonymous) return;
-
-    const fetchRecentSearches = async () => {
-      const { data, error } = await supabase
-        .from("recent_searches")
-        .select("query")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (error) {
-        console.error("Error fetching recent searches:", error);
-        return;
-      }
-
-      setRecentSearches(data.map(d => d.query));
-    };
-
-    fetchRecentSearches();
-  }, [user]);
-
-  // Sync recent search items (tracks) from Supabase if logged in
-  useEffect(() => {
-    if (!user || user.is_anonymous) return;
-
-    const fetchRecentSearchTracks = async () => {
-      const { data, error } = await supabase
-        .from("recent_search_items")
-        .select("track_data")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (error || !data) {
-        console.error("Error fetching recent search items:", error);
-        return;
-      }
-
-      setRecentSearchTracks(data.map((d: any) => d.track_data as unknown as Track));
-    };
-
-    fetchRecentSearchTracks();
-  }, [user]);
-
   // Sync recently played from Supabase if logged in
   useEffect(() => {
     if (!user || user.is_anonymous) return;
@@ -664,10 +580,7 @@ export default function App() {
               playlists={playlists}
               onAddToPlaylist={handleAddToPlaylist}
               onRemoveFromPlaylist={handleRemoveFromPlaylist}
-              onEditPlaylist={(pl) => {
-                setPlaylistToEdit(pl);
-                setShowEditModal(true);
-              }}
+
               activePlaylist={activePlaylist}
               onOpenSearch={() => setIsSearchOpen(true)}
               searchResults={searchResults}
@@ -675,17 +588,13 @@ export default function App() {
               onTrackDetail={handleTrackDetail}
               recentlyPlayed={recentlyPlayed}
               user={user}
-              onCreatePlaylist={handleCreatePlaylist}
+
               onDeletePlaylist={requestDeletePlaylist}
               isShuffle={player.isShuffle}
               repeatMode={player.repeatMode}
               onToggleShuffle={player.toggleShuffle}
               onToggleRepeat={player.toggleRepeat}
-              onSearchArtist={handleSearchArtist}
-              showCreateModal={showCreateModal}
               setShowCreateModal={setShowCreateModal}
-              recentSearches={recentSearches}
-              recentSearchTracks={recentSearchTracks}
             />
 
             <aside
@@ -867,8 +776,8 @@ export default function App() {
           }}
           liked={player.liked}
           onToggleLike={player.toggleLike}
-          recentSearches={recentSearchTracks}
-          onRemoveRecent={handleRemoveRecentSearch}
+          recentSearchTracks={recentSearchTracks}
+          onRemoveRecentSearch={removeRecentSearch}
         />
 
         {/* Create Playlist Modal */}

@@ -9,7 +9,6 @@ export function LibraryView({
   likedTracks,
   recentlyPlayed,
   onSelectView,
-  onTrackDetail,
   onSelect,
   onPlayPlaylist,
 }: {
@@ -17,7 +16,6 @@ export function LibraryView({
   likedTracks: Track[];
   recentlyPlayed: Track[];
   onSelectView: (v: string) => void;
-  onTrackDetail: (t: Track) => void;
   onSelect: (track: Track, contextQueue?: Track[]) => void;
   onPlayPlaylist: (tracks: Track[]) => void;
 }) {

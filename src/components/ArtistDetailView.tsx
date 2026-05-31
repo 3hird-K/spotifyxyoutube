@@ -4,7 +4,8 @@ import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { Button } from "@/components/ui/button";
 import { TrackRow } from "./TrackRow";
-import { searchYouTubeMusic, getArtistDetails, getOrFetchArtistChannelId } from "../utils/youtube";
+import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
+import { searchDeezerArtists } from "../utils/deezer";
 
 
 export function ArtistDetailView({
@@ -38,8 +39,9 @@ export function ArtistDetailView({
   const [isLoading, setIsLoading] = useState(true);
   const [subscriberCount, setSubscriberCount] = useState<string | null>(null);
   const [realArtistImage, setRealArtistImage] = useState<string | null>(null);
+  const [showAllTracks, setShowAllTracks] = useState(false);
 
-  // Fetch at least 15 tracks of the artist
+  // Fetch tracks of the artist
   useEffect(() => {
     let isMounted = true;
     const fetchArtistTracks = async () => {
@@ -47,7 +49,7 @@ export function ArtistDetailView({
       try {
         const results = await searchYouTubeMusic(artist.name);
         if (isMounted) {
-          setArtistTracks(results.slice(0, 15));
+          setArtistTracks(results);
 
           const extractChannelId = (url: string | undefined): string | null => {
             if (!url) return null;
@@ -59,23 +61,28 @@ export function ArtistDetailView({
             }
           };
 
-          const firstTrack = results[0];
-          let channelId = extractChannelId(artist.youtubeArtistUrl) || extractChannelId(firstTrack?.youtubeArtistUrl);
-
-          if (!channelId) {
-            channelId = await getOrFetchArtistChannelId(artist.name);
-          }
+          let channelId = extractChannelId(artist.youtubeArtistUrl) || extractChannelId(results[0]?.youtubeArtistUrl);
 
           if (channelId && isMounted) {
             const data = await getArtistDetails(channelId);
             if (isMounted) {
               if (data.subscriberCount) {
-                // Convert to a nice format e.g. 2637456 -> 2,637,456
                 const formatted = Number(data.subscriberCount).toLocaleString();
                 setSubscriberCount(formatted);
               }
               if (data.thumbnailUrl) {
                 setRealArtistImage(data.thumbnailUrl);
+              }
+            }
+          } else if (isMounted) {
+            const deezerData = await searchDeezerArtists(artist.name);
+            const deezerArtist = deezerData?.[0];
+            if (deezerArtist && isMounted) {
+              if (deezerArtist.nb_fan) {
+                setSubscriberCount(Number(deezerArtist.nb_fan).toLocaleString());
+              }
+              if (deezerArtist.thumbnail) {
+                setRealArtistImage(deezerArtist.thumbnail);
               }
             }
           }
@@ -96,15 +103,6 @@ export function ArtistDetailView({
 
   const isCurrentArtistTrackPlaying = currentTrack?.artist === artist.name && isPlaying;
 
-  const getMonthlyListenersFallback = (artistName: string) => {
-    let hash = 0;
-    for (let i = 0; i < artistName.length; i++) {
-      hash = artistName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const base = Math.abs(hash % 4500000) + 150000;
-    return base.toLocaleString();
-  };
-
   // Clean up protocol-relative URLs
   const cleanUrl = (url: string | undefined): string | undefined => {
     if (!url) return undefined;
@@ -115,6 +113,8 @@ export function ArtistDetailView({
   const rawArtistThumbnail = realArtistImage || artist.thumbnail;
   const artistThumbnail = cleanUrl(rawArtistThumbnail);
   const fallbackAvatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name)}`;
+
+  const displayedTracks = showAllTracks ? artistTracks.slice(0, 40) : artistTracks.slice(0, 15);
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-800 to-zinc-950 overflow-y-auto pb-8">
@@ -231,7 +231,7 @@ export function ArtistDetailView({
           <p className="text-zinc-500 py-6 text-sm">No songs found for this artist.</p>
         ) : (
           <div className="space-y-1">
-            {artistTracks.map((track, idx) => (
+            {displayedTracks.map((track, idx) => (
               <TrackRow
                 key={`${track.id}-${idx}`}
                 track={track}
@@ -249,9 +249,18 @@ export function ArtistDetailView({
                 onTrackDetail={onTrackDetail}
               />
             ))}
+            {artistTracks.length > 15 && (
+              <button 
+                onClick={() => setShowAllTracks(!showAllTracks)}
+                className="text-zinc-400 hover:text-white text-sm font-bold uppercase tracking-wider py-4 text-left ml-4 transition-colors"
+              >
+                {showAllTracks ? "Show less" : "See more"}
+              </button>
+            )}
           </div>
         )}
       </div>
     </main>
   );
 }
+

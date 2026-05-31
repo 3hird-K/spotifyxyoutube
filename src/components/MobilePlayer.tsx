@@ -27,7 +27,6 @@ export function MobilePlayer({
   onNext,
   onPrev,
   onTogglePiP,
-  isPiPSupported,
   isPiPActive,
 }: MobilePlayerProps) {
   if (!track) return null;
