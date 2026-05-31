@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Play, Pause, Heart, Plus, ListPlus, Check, Loader2 } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { Button } from "@/components/ui/button";
 import { TrackRow } from "./TrackRow";
 import { searchYouTubeMusic, getArtistDetails, getOrFetchArtistChannelId } from "../utils/youtube";
-import axios from "axios";
+
 
 export function ArtistDetailView({
   artist,

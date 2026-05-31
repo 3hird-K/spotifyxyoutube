@@ -119,7 +119,7 @@ export const searchYouTubeMusic = async (
       let search = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
-          maxResults: 15,
+          maxResults: 40,
           q: searchQuery,
           type: "video",
           videoCategoryId: "10",
@@ -133,7 +133,7 @@ export const searchYouTubeMusic = async (
         search = await axios.get(`${BASE_URL}/search`, {
           params: {
             part: "snippet",
-            maxResults: 15,
+            maxResults: 40,
             q: searchQuery,
             type: "video",
             key: API_KEY,
@@ -170,7 +170,7 @@ export const searchYouTubeMusic = async (
       let search = await axios.get(`${BASE_URL}/search`, {
         params: {
           part: "snippet",
-          maxResults: 15,
+          maxResults: 40,
           q: trimmedQuery,
           type: "video",
           videoCategoryId: "10",
@@ -184,7 +184,7 @@ export const searchYouTubeMusic = async (
         search = await axios.get(`${BASE_URL}/search`, {
           params: {
             part: "snippet",
-            maxResults: 15,
+            maxResults: 40,
             q: trimmedQuery,
             type: "video",
             key: API_KEY,

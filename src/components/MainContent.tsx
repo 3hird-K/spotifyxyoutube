@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Search, Play, Clock, Heart, Loader2, Trash2, ListMusic, Shuffle, Repeat, Repeat1, Pause,
-  Plus,
+  Plus, UserMinus, UserPlus
 } from "lucide-react";
 import { RepeatMode } from "../hooks/usePlayer";
 import { Track, GENRES } from "../data/tracks";
@@ -65,7 +65,7 @@ interface MainContentProps {
   recentSearchTracks?: Track[];
 }
 
-const ArtistCard = ({ artist, onSelect, onFollow }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void }) => {
+const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void; isFollowing?: boolean }) => {
   const [realThumbnail, setRealThumbnail] = useState(artist.thumbnail);
 
   useEffect(() => {
@@ -136,6 +136,7 @@ const ArtistCard = ({ artist, onSelect, onFollow }: { artist: any; onSelect: () 
       title={artist.name}
       subtitle="Artist"
       rounded={true}
+      isFollowing={isFollowing}
     />
   );
 };
@@ -147,65 +148,6 @@ const getInitials = (name: string) => {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
   return name.slice(0, 2).toUpperCase();
-};
-
-const SuggestedArtistItem = ({ artist, onSelect, onFollow }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void }) => {
-  const [thumbnail, setThumbnail] = useState(artist.thumbnail);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchRealPic = async () => {
-      const pic = await searchYouTubeArtistThumbnail(artist.name);
-      if (isMounted && pic) {
-        setThumbnail(pic);
-      }
-    };
-    if (artist.name) {
-      fetchRealPic();
-    }
-  }, [artist.name]);
-
-  return (
-    <div
-      onClick={onSelect}
-      className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1 h-full flex-1"
-    >
-      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative select-none">
-        <div className="w-full h-full rounded-full overflow-hidden">
-          {thumbnail ? (
-            <img
-              src={thumbnail}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              alt={artist.name}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
-              {getInitials(artist.name)}
-            </div>
-          )}
-        </div>
-
-        {/* Green Add button on suggested artist card too! */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFollow) {
-              onFollow({ name: artist.name, thumbnail, youtubeArtistUrl: artist.youtubeArtistUrl });
-            }
-          }}
-          className="absolute bottom-1 right-1 w-8 h-8 sm:w-10 sm:h-10 bg-[#1ed760] hover:bg-[#1fdf64] rounded-full flex items-center justify-center shadow-2xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 z-20 cursor-pointer text-black flex items-center justify-center border-2 border-zinc-900"
-        >
-          <Plus size={20} className="text-black font-bold" />
-        </button>
-      </div>
-      <div className="w-full">
-        <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
-          {artist.name}
-        </p>
-        <p className="text-xs text-zinc-500 font-medium truncate">Suggested Artist</p>
-      </div>
-    </div>
-  );
 };
 
 export default function MainContent(props: MainContentProps) {
@@ -252,12 +194,35 @@ export default function MainContent(props: MainContentProps) {
   const shouldFetchTrending = activeView === "home";
 
   const trendingQuery =
-    selectedGenre !== "All" ? `${selectedGenre} music trending` : "New singles as of 2026";
+    selectedGenre !== "All" ? `${selectedGenre} popular hit singles official music video` : "top popular hit singles official music video";
 
-  const { data: apiTracks = [], isLoading: isTrendingLoading } = useSearchMusic(
+  const isCompilation = (title: string) => {
+    const t = title.toLowerCase();
+    return (
+      t.includes("mix") ||
+      t.includes("playlist") ||
+      t.includes("compilation") ||
+      t.includes("full album") ||
+      t.includes("top songs of") ||
+      t.includes("most streamed") ||
+      t.includes("non-stop") ||
+      t.includes("nonstop") ||
+      t.includes("best of") ||
+      t.includes("top 10") ||
+      t.includes("top 5") ||
+      t.includes("megamix") ||
+      t.includes("medley") ||
+      t.includes("mashup")
+    );
+  };
+
+  const { data: rawApiTracks = [], isLoading: isTrendingLoading } = useSearchMusic(
     trendingQuery,
     shouldFetchTrending
   );
+
+  const apiTracks = rawApiTracks.filter(track => !isCompilation(track.title) && track.duration < 600);
+
 
 
   // Queue update — tightened deps
@@ -271,23 +236,7 @@ export default function MainContent(props: MainContentProps) {
   const [suggestedSongs, setSuggestedSongs] = useState<Track[]>([]);
   useEffect(() => {
     let isMounted = true;
-    const isCompilation = (title: string) => {
-      const t = title.toLowerCase();
-      return (
-        t.includes("mix") ||
-        t.includes("playlist") ||
-        t.includes("compilation") ||
-        t.includes("full album") ||
-        t.includes("top songs of") ||
-        t.includes("most streamed") ||
-        t.includes("non-stop") ||
-        t.includes("nonstop") ||
-        t.includes("best of") ||
-        t.includes("top 10") ||
-        t.includes("top 5") ||
-        t.includes("megamix")
-      );
-    };
+
 
     const fetchSuggestedSongs = async () => {
       try {
@@ -567,7 +516,23 @@ export default function MainContent(props: MainContentProps) {
       { name: "Lady Gaga" },
       { name: "Coldplay" },
       { name: "Ed Sheeran" },
-      { name: "Beyoncé" }
+      { name: "Beyoncé" },
+      { name: "Eminem" },
+      { name: "Katy Perry" },
+      { name: "Maroon 5" },
+      { name: "Adele" },
+      { name: "Justin Timberlake" },
+      { name: "Shakira" },
+      { name: "Miley Cyrus" },
+      { name: "Selena Gomez" },
+      { name: "Harry Styles" },
+      { name: "Doja Cat" },
+      { name: "Olivia Rodrigo" },
+      { name: "Tate McRae" },
+      { name: "Travis Scott" },
+      { name: "Kendrick Lamar" },
+      { name: "J. Cole" },
+      { name: "Future" }
     ];
 
     const isFollowed = (artistName: string) => {
@@ -592,7 +557,7 @@ export default function MainContent(props: MainContentProps) {
     const seenSuggested = new Set<string>();
 
     fallbackArtists.forEach((fa) => {
-      if (suggested.length >= 15) return;
+      if (suggested.length >= 30) return;
       const lower = fa.name.toLowerCase().trim();
       if (!isFollowed(fa.name) && !seenSuggested.has(lower)) {
         seenSuggested.add(lower);
@@ -619,8 +584,9 @@ export default function MainContent(props: MainContentProps) {
             <HorizontalScrollSection title="Followed Artists">
               {followedArtists.map((fa) => (
                 <div key={fa.id} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
-                  <div
-                    onClick={() => {
+                  <ArtistCard
+                    artist={fa}
+                    onSelect={() => {
                       setSelectedArtist({
                         name: fa.name,
                         thumbnail: fa.thumbnail,
@@ -628,28 +594,9 @@ export default function MainContent(props: MainContentProps) {
                       });
                       setActiveView("artist-detail");
                     }}
-                    className="group p-4 bg-zinc-900/40 hover:bg-zinc-800/60 rounded-2xl border border-transparent hover:border-zinc-800 transition-all duration-300 cursor-pointer select-none text-center flex flex-col items-center gap-3 relative shadow-sm hover:shadow-xl hover:-translate-y-1"
-                  >
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 shadow-lg group-hover:shadow-2xl transition-shadow bg-zinc-800 relative">
-                      {fa.thumbnail ? (
-                        <img
-                          src={fa.thumbnail}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          alt={fa.name}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800 text-2xl font-black">
-                          {getInitials(fa.name)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-full">
-                      <p className="text-sm font-bold text-white group-hover:text-[#1ed760] transition-colors truncate mb-0.5">
-                        {fa.name}
-                      </p>
-                      <p className="text-xs text-zinc-500 font-medium truncate">Artist</p>
-                    </div>
-                  </div>
+                    onFollow={handleFollowArtist}
+                    isFollowing={true}
+                  />
                 </div>
               ))}
             </HorizontalScrollSection>
@@ -657,22 +604,42 @@ export default function MainContent(props: MainContentProps) {
 
           {/* Suggested Artists Section */}
           <HorizontalScrollSection title="Suggested artists for you">
-            {suggested.map((artist, idx) => (
-              <div key={`sug-${idx}`} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
-                <SuggestedArtistItem
-                  artist={artist}
-                  onSelect={() => {
-                    setSelectedArtist({
-                      name: artist.name,
-                      thumbnail: artist.thumbnail,
-                    });
-                    setActiveView("artist-detail");
-                  }}
-                  onFollow={handleFollowArtist}
-                />
-              </div>
-            ))}
+            <div className="grid grid-rows-3 grid-flow-col gap-4">
+              {suggested.map((artist, idx) => (
+                <div key={`sug-${idx}`} className="w-[160px] sm:w-[200px] h-full">
+                  <ArtistCard
+                    artist={artist}
+                    onSelect={() => {
+                      setSelectedArtist({
+                        name: artist.name,
+                        thumbnail: artist.thumbnail,
+                      });
+                      setActiveView("artist-detail");
+                    }}
+                    onFollow={handleFollowArtist}
+                    isFollowing={isFollowing(artist.name)}
+                  />
+                </div>
+              ))}
+            </div>
           </HorizontalScrollSection>
+
+          {/* Suggested Songs Section */}
+          {suggestedSongs.length > 0 && (
+            <HorizontalScrollSection title="Suggested songs">
+              {suggestedSongs.map((track) => (
+                <div key={track.id} className="shrink-0 w-[160px] sm:w-[200px] pr-4">
+                  <HomeCard
+                    track={track}
+                    onSelect={(t) => onSelect(t, suggestedSongs)}
+                    onAdd={() => handleFollowArtist({ name: track.artist, thumbnail: track.thumbnail })}
+                    title={track.title}
+                    subtitle={track.artist}
+                  />
+                </div>
+              ))}
+            </HorizontalScrollSection>
+          )}
 
         </div>
       </div>
