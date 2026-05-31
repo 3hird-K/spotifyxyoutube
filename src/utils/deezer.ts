@@ -6,7 +6,7 @@ export const searchDeezerMusic = async (query: string): Promise<Track[]> => {
 
   try {
     const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.io/?https://api.deezer.com" 
+      ? "https://corsproxy.org/?https://api.deezer.com" 
       : "/api/deezer";
       
     let url = `${baseUrl}/search`;
@@ -47,7 +47,7 @@ export const searchDeezerArtistPicture = async (artistName: string): Promise<str
   
   try {
     const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.io/?https://api.deezer.com" 
+      ? "https://corsproxy.org/?https://api.deezer.com" 
       : "/api/deezer";
       
     const url = `${baseUrl}/search/artist`;
@@ -68,7 +68,7 @@ export const searchDeezerArtists = async (query: string): Promise<any[]> => {
   
   try {
     const baseUrl = import.meta.env.PROD 
-      ? "https://corsproxy.io/?https://api.deezer.com" 
+      ? "https://corsproxy.org/?https://api.deezer.com" 
       : "/api/deezer";
       
     const url = `${baseUrl}/search/artist`;
