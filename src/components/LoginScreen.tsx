@@ -85,7 +85,7 @@ export const LoginScreen = () => {
       </div>
 
       <div className="absolute bottom-8 left-8 hidden md:block">
-        <p className="text-zinc-600 text-xs font-mono">v1.0.4 // PRODUCTION_BUILD</p>
+        <p className="text-zinc-600 text-xs font-mono">v1.0.4 // PRODUCTION_BUILD // 2026-05-31</p>
       </div>
     </div>
   );
