@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Heart } from "lucide-react";
+import { Search, Heart, UserPlus, UserMinus } from "lucide-react";
 import { useSearchMusic } from "../hooks/useSearchMusic";
 import { Track } from "../data/tracks";
 import { formatTime } from "../utils/format";
@@ -26,6 +26,8 @@ interface SearchModalProps {
   onToggleLike: (track: Track) => void;
   recentSearchTracks: Track[];
   onRemoveRecentSearch: (trackId: string) => void;
+  isFollowingArtist?: (artistName: string) => boolean;
+  onToggleFollowArtist?: (artist: { name: string; thumbnail?: string; youtubeArtistUrl?: string }) => void;
 }
 
 export default function SearchModal({
@@ -37,6 +39,8 @@ export default function SearchModal({
   onToggleLike,
   recentSearchTracks,
   onRemoveRecentSearch,
+  isFollowingArtist,
+  onToggleFollowArtist,
 }: SearchModalProps) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -166,39 +170,58 @@ export default function SearchModal({
                 <div className="mb-6">
                   <h3 className="text-base font-bold text-white px-2 mb-3">Artists</h3>
                   <div className="flex flex-wrap gap-4 px-2">
-                    {artistResults.map((art, idx) => (
-                      <button
-                        key={`${art.name}-${idx}`}
-                        onClick={() => {
-                          if (onSelectArtist) {
-                            onSelectArtist({
-                              name: art.name,
-                              thumbnail: art.thumbnail,
-                              youtubeArtistUrl: art.youtubeArtistUrl,
-                            });
-                          }
-                        }}
-                        className="flex flex-col items-center p-3 rounded-xl hover:bg-white/10 transition-all text-center w-[120px] sm:w-[140px] group shrink-0"
-                      >
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden mb-3 bg-zinc-800 shadow-lg group-hover:scale-105 transition-transform duration-200 flex items-center justify-center">
-                          {art.thumbnail ? (
-                            <img
-                              src={art.thumbnail}
-                              alt={art.name}
-                              className="w-full h-full object-cover select-none"
-                            />
-                          ) : (
-                            <span className="text-zinc-500 font-bold select-none text-xl">
-                              {art.name.slice(0, 2).toUpperCase()}
-                            </span>
+                    {artistResults.map((art, idx) => {
+                      const following = isFollowingArtist ? isFollowingArtist(art.name) : false;
+                      return (
+                        <div key={`${art.name}-${idx}`} className="flex flex-col items-center group relative w-[120px] sm:w-[140px] shrink-0">
+                          <button
+                            onClick={() => {
+                              if (onSelectArtist) {
+                                onSelectArtist({
+                                  name: art.name,
+                                  thumbnail: art.thumbnail,
+                                  youtubeArtistUrl: art.youtubeArtistUrl,
+                                });
+                              }
+                            }}
+                            className="flex flex-col items-center p-3 rounded-xl hover:bg-white/10 transition-all text-center w-full"
+                          >
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden mb-3 bg-zinc-800 shadow-lg group-hover:scale-105 transition-transform duration-200 flex items-center justify-center">
+                              {art.thumbnail ? (
+                                <img
+                                  src={art.thumbnail}
+                                  alt={art.name}
+                                  className="w-full h-full object-cover select-none"
+                                />
+                              ) : (
+                                <span className="text-zinc-500 font-bold select-none text-xl">
+                                  {art.name.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm font-bold text-white truncate w-full mb-1">
+                              {art.name}
+                            </p>
+                            <span className="text-xs text-zinc-400">Artist</span>
+                          </button>
+                          
+                          {onToggleFollowArtist && (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              className={`absolute top-2 right-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100 ${following ? "bg-white/10 text-white opacity-100" : "bg-zinc-800/80 text-zinc-400 hover:text-white"}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFollowArtist(art);
+                              }}
+                              title={following ? "Unfollow" : "Follow"}
+                            >
+                              {following ? <UserMinus size={14} /> : <UserPlus size={14} />}
+                            </Button>
                           )}
                         </div>
-                        <p className="text-sm font-bold text-white truncate w-full mb-1">
-                          {art.name}
-                        </p>
-                        <span className="text-xs text-zinc-400">Artist</span>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

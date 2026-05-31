@@ -1053,8 +1053,11 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     toggleShuffle,
     toggleRepeat,
     toggleLike,
-    addToQueue,
     setQueueOnly,
     loadTrack,
+    replaceQueue: useCallback((newQueue: Track[], newIndex: number) => {
+      setQueue(newQueue);
+      setCurrentIndex(newIndex);
+    }, []),
   };
 }

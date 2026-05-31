@@ -230,10 +230,10 @@ export default function App() {
   }, [player]);
 
   const handleSelectFromSearch = useCallback(async (track: Track) => {
-    handleSelectTrack(track);
+    const initialQueue = [track];
+    handleSelectTrack(track, initialQueue);
     addRecentSearch(track);
 
-    // Save search query if provided (recently searched tracks feature removed)
     const related = await searchYouTubeMusic("", {
       mode: "recommend",
       videoId: track.youtubeId
@@ -244,14 +244,13 @@ export default function App() {
         t.id !== track.id &&
         !t.title.toLowerCase().includes(track.title.toLowerCase())
       );
-      setSearchResults([track, ...relatedFiltered]);
-      player.setQueue([track, ...relatedFiltered]);
+      const newQueue = [track, ...relatedFiltered];
+      setSearchResults(newQueue);
+      player.replaceQueue(newQueue, 0);
     } else {
-      setSearchResults([track]);
-      player.setQueue([track]);
+      setSearchResults(initialQueue);
     }
 
-    // Go directly to track detail view to show recommendations
     handleTrackDetail(track);
   }, [player, handleTrackDetail, user, handleSelectTrack, addRecentSearch]);
 
@@ -778,6 +777,8 @@ export default function App() {
           onToggleLike={player.toggleLike}
           recentSearchTracks={recentSearchTracks}
           onRemoveRecentSearch={removeRecentSearch}
+          isFollowingArtist={isFollowing}
+          onToggleFollowArtist={toggleFollowArtist}
         />
 
         {/* Create Playlist Modal */}
