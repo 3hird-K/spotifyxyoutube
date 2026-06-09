@@ -971,9 +971,11 @@ export default function MainContent(props: MainContentProps) {
               </div>
             ) : (
               <div className="space-y-1">
-                <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
+                <div className="hidden sm:grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
                   <span className="w-8 text-center">#</span>
                   <span>Title</span>
+                  <span>Album</span>
+                  <span>Listeners</span>
                   <span className="flex items-center gap-1"><Clock size={13} /></span>
                   <span className="w-20 text-center">Actions</span>
                 </div>

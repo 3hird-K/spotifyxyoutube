@@ -20,7 +20,7 @@ export const WeeklyPopularSongs = ({ songs, onSelect, onAddArtist }: WeeklyPopul
             onSelect={(t) => onSelect(t, songs)}
             onAdd={onAddArtist ? () => onAddArtist({ name: track.artist, thumbnail: track.thumbnail }) : undefined}
             title={track.title}
-            subtitle={track.artist}
+            subtitle={track.listeners ? `${track.artist} • ${track.listeners.toLocaleString()} listeners` : track.artist}
           />
         </div>
       ))}

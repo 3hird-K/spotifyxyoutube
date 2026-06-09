@@ -13,6 +13,7 @@ export interface Track {
   youtubeArtistUrl?: string;
   youtubeUrl: string;
   description?: string;
+  listeners?: number;
 }
 
 // Global list of available genres for filtering

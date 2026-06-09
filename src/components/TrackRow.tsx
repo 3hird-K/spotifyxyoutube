@@ -44,7 +44,7 @@ export function TrackRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_1fr_auto_auto] gap-2 sm:gap-4 items-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl group cursor-pointer transition-colors ${isCurrent
+      className={`grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-2 sm:gap-4 items-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl group cursor-pointer transition-colors ${isCurrent
         ? "bg-[#1DB954]/10 border border-[#1DB954]/20"
         : "hover:bg-zinc-800/60"
         }`}
@@ -106,6 +106,13 @@ export function TrackRow({
       {/* Album — hidden on mobile */}
       <div className="hidden sm:block overflow-hidden">
         <p className="text-sm text-zinc-400 truncate hover:text-white transition-colors">{track.album}</p>
+      </div>
+
+      {/* Listeners — hidden on mobile */}
+      <div className="hidden sm:block overflow-hidden">
+        <p className="text-sm text-zinc-400 truncate">
+          {track.listeners ? track.listeners.toLocaleString() : "—"}
+        </p>
       </div>
 
       {/* Duration + Like + Actions (combined on mobile) */}

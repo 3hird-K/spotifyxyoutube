@@ -29,6 +29,7 @@ export const searchDeezerMusic = async (query: string): Promise<Track[]> => {
       duration: item.duration, // Deezer duration is in seconds
       youtubeId: "", // Will be fetched later when playing
       thumbnail: item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium || "",
+      listeners: item.rank,
       genre: "Mixed",
       year: new Date().getFullYear(),
       spotifyUrl: undefined,
@@ -98,6 +99,7 @@ export const fetchWeeklyPopularSongs = async (): Promise<Track[]> => {
       duration: item.duration, // Deezer duration is in seconds
       youtubeId: "", // Will be fetched later when playing
       thumbnail: item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium || "",
+      listeners: item.rank,
       genre: "Popular",
       year: new Date().getFullYear(),
       spotifyUrl: undefined,
