@@ -939,6 +939,22 @@ export default function MainContent(props: MainContentProps) {
                   ))}
                 </div>
 
+                {/* Suggested songs */}
+                {suggestedSongs.length > 0 && (
+                  <HorizontalScrollSection title="Suggested songs">
+                    {suggestedSongs.map(track => (
+                      <div key={`suggested-song-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
+                        <HomeCard
+                          track={track}
+                          onSelect={(t) => onSelect(t, suggestedSongs)}
+                          title={track.title}
+                          subtitle={track.artist}
+                        />
+                      </div>
+                    ))}
+                  </HorizontalScrollSection>
+                )}
+
                 {/* Recommended Stations / Most Popular songs */}
                 <HorizontalScrollSection
                   title="Most Popular songs"
@@ -968,22 +984,6 @@ export default function MainContent(props: MainContentProps) {
                             setActiveView("artist-detail");
                           }}
                           onFollow={handleFollowArtist}
-                        />
-                      </div>
-                    ))}
-                  </HorizontalScrollSection>
-                )}
-
-                {/* Suggested songs */}
-                {suggestedSongs.length > 0 && (
-                  <HorizontalScrollSection title="Suggested songs">
-                    {suggestedSongs.map(track => (
-                      <div key={`suggested-song-${track.id}`} className="shrink-0 w-[160px] sm:w-[200px]">
-                        <HomeCard
-                          track={track}
-                          onSelect={(t) => onSelect(t, suggestedSongs)}
-                          title={track.title}
-                          subtitle={track.artist}
                         />
                       </div>
                     ))}

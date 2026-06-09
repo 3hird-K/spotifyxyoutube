@@ -19,13 +19,19 @@ export function useFollowedArtists(user: any) {
       setIsLoading(true);
       const localStored = localStorage.getItem("followed_artists");
       let currentList: FollowedArtist[] = localStored ? JSON.parse(localStored) : [];
+      currentList.sort((a, b) => {
+        const timeA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
+        const timeB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
+        return timeB - timeA;
+      });
 
       if (user && !user.is_anonymous) {
         try {
           const { data, error } = await supabase
             .from("followed_artists")
             .select("*")
-            .eq("user_id", user.id);
+            .eq("user_id", user.id)
+            .order("followed_at", { ascending: false });
 
           if (!error && data) {
             currentList = data.map((item: any) => ({
@@ -35,6 +41,13 @@ export function useFollowedArtists(user: any) {
               thumbnail: item.thumbnail,
               followed_at: item.followed_at,
             }));
+            
+            // Ensure descending order
+            currentList.sort((a, b) => {
+              const timeA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
+              const timeB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
+              return timeB - timeA;
+            });
           }
         } catch (err) {
           console.warn("Could not fetch followed artists from DB, using local storage fallback", err);
@@ -63,6 +76,11 @@ export function useFollowedArtists(user: any) {
       // Unfollow
       nextList = followedArtists.filter((a) => a.id !== artistId);
 
+      // Optimistic UI Update
+      setFollowedArtists(nextList);
+      localStorage.setItem("followed_artists", JSON.stringify(nextList));
+      window.dispatchEvent(new Event("followed_artists_updated"));
+
       if (user && !user.is_anonymous) {
         try {
           await supabase
@@ -84,7 +102,12 @@ export function useFollowedArtists(user: any) {
         followed_at: new Date().toISOString(),
       };
 
-      nextList = [...followedArtists, newItem];
+      nextList = [newItem, ...followedArtists];
+
+      // Optimistic UI Update
+      setFollowedArtists(nextList);
+      localStorage.setItem("followed_artists", JSON.stringify(nextList));
+      window.dispatchEvent(new Event("followed_artists_updated"));
 
       if (user && !user.is_anonymous) {
         try {
@@ -101,10 +124,26 @@ export function useFollowedArtists(user: any) {
         }
       }
     }
-
-    setFollowedArtists(nextList);
-    localStorage.setItem("followed_artists", JSON.stringify(nextList));
   };
+
+  useEffect(() => {
+    const syncFollowed = () => {
+      const localStored = localStorage.getItem("followed_artists");
+      if (localStored) {
+        const parsed = JSON.parse(localStored);
+        // Ensure it's sorted properly
+        parsed.sort((a: any, b: any) => {
+          const timeA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
+          const timeB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
+          return timeB - timeA;
+        });
+        setFollowedArtists(parsed);
+      }
+    };
+
+    window.addEventListener("followed_artists_updated", syncFollowed);
+    return () => window.removeEventListener("followed_artists_updated", syncFollowed);
+  }, []);
 
   const isFollowing = (artistName: string) => {
     if (!artistName) return false;
