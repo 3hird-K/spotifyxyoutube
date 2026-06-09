@@ -11,6 +11,7 @@ import { useFollowedArtists } from "./hooks/useFollowedArtists";
 import { LoginScreen } from "./components/LoginScreen"; // Ensure you create this file
 import { MobilePlayer } from "./components/MobilePlayer";
 import { useSearchHistory } from "./hooks/useSearchHistory";
+import { useSuggestedSongs } from "./hooks/useSuggestedSongs";
 import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
 import { PanelRightOpen, PanelRightClose, Home, Library, LogIn, LogOut, Plus, ListMusic, Users } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
@@ -53,12 +54,26 @@ export default function App() {
 
   const player = usePlayer([], user);
   const pip = usePictureInPicture(player.currentTrack);
-  const { toggleFollowArtist, isFollowing } = useFollowedArtists(user);
+  const { toggleFollowArtist, isFollowing, followedArtists } = useFollowedArtists(user);
+  const { suggestedSongs } = useSuggestedSongs(followedArtists || []);
   const { recentSearchTracks, recentSearches, addRecentSearch, removeRecentSearch } = useSearchHistory(user);
   const initialVideoIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    player.onExhaustedRef.current = (lastTrack) => {
+      if (suggestedSongs.length > 0) {
+        const next = suggestedSongs[Math.floor(Math.random() * suggestedSongs.length)];
+        return next;
+      }
+      return undefined;
+    };
+  }, [suggestedSongs, player.onExhaustedRef]);
+  
   if (player.currentTrack && !initialVideoIdRef.current) {
     initialVideoIdRef.current = player.currentTrack.youtubeId;
   }
+
+
 
   // -- Video / PIP State --
   const [isPip, setIsPip] = useState(false);
@@ -328,9 +343,26 @@ export default function App() {
     fetchRecentlyPlayed();
   }, [user, player.loadTrack]);
 
-  // Keyboard shortcut for search modal (Cmd+K or Ctrl+K)
+  // Keyboard shortcut for search modal (Cmd+K or Ctrl+K) and Space for play/pause
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle Space bar for Play/Pause
+      if (e.code === "Space") {
+        // Prevent default scrolling unless the user is typing in an input
+        const activeElement = document.activeElement as HTMLElement;
+        if (
+          activeElement &&
+          (activeElement.tagName === "INPUT" ||
+            activeElement.tagName === "TEXTAREA" ||
+            activeElement.isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        player.togglePlay();
+      }
+
+      // Handle Cmd+K / Ctrl+K for Search
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setIsSearchOpen(true);
@@ -338,7 +370,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [player.togglePlay]);
 
   const handleCreatePlaylist = useCallback(async (name: string) => {
     const tempId = `pl_${Date.now()}`;
@@ -481,45 +513,17 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    player.onExhaustedRef.current = async (lastTrack) => {
-      let related: Track[] = [];
+    player.onExhaustedRef.current = (lastTrack) => {
+      if (suggestedSongs.length === 0) return;
 
-      // Priority 1: Exact artist the user has just been listening to (lastTrack)
-      if (lastTrack?.artist) {
-        related = await searchYouTubeMusic(`${lastTrack.artist} top tracks`);
-      }
+      const existingIds = new Set(player.queue.map((t) => t.id));
+      const available = suggestedSongs.filter(t => !existingIds.has(t.id));
+      if (available.length === 0) return;
 
-      // Priority 2: New release songs for that artist or general new releases
-      if (related.length === 0) {
-        const query = lastTrack?.artist
-          ? `${lastTrack.artist} new releases`
-          : "new music releases";
-        related = await searchYouTubeMusic(query);
-      }
-
-      // Priority 3: Fallback general new release songs
-      if (related.length === 0) {
-        related = await searchYouTubeMusic("new music releases");
-      }
-
-      if (related.length === 0) return;
-
-      player.setQueue((prev) => {
-        const existingIds = new Set(prev.map((t) => t.id));
-        const currentTitle = lastTrack?.title.toLowerCase();
-        const fresh = related.filter((t) =>
-          !existingIds.has(t.id) &&
-          (!currentTitle || !t.title.toLowerCase().includes(currentTitle))
-        );
-        if (fresh.length === 0) return prev;
-
-        const nextIdx = prev.length;
-        setTimeout(() => player.selectTrack(nextIdx), 0);
-
-        return [...prev, ...fresh];
-      });
+      const randomTrack = available[Math.floor(Math.random() * available.length)];
+      return randomTrack;
     };
-  }, [player.selectTrack]);
+  }, [player.queue, suggestedSongs]);
 
   const activePlaylistId = activeView.startsWith("playlist:")
     ? activeView.replace("playlist:", "")
@@ -583,6 +587,7 @@ export default function App() {
               activePlaylist={activePlaylist}
               onOpenSearch={() => setIsSearchOpen(true)}
               searchResults={searchResults}
+              suggestedSongs={suggestedSongs}
               selectedTrackDetail={selectedTrackDetail}
               onTrackDetail={handleTrackDetail}
               recentlyPlayed={recentlyPlayed}

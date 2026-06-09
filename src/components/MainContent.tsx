@@ -57,6 +57,7 @@ interface MainContentProps {
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
   setShowCreateModal: (show: boolean) => void;
+  suggestedSongs: Track[];
 }
 
 const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void; isFollowing?: boolean }) => {
@@ -149,6 +150,7 @@ export default function MainContent(props: MainContentProps) {
     onToggleShuffle,
     onToggleRepeat,
     setShowCreateModal,
+    suggestedSongs,
   } = props;
 
   const [selectedGenre, setSelectedGenre] = useState("All");
@@ -221,81 +223,7 @@ export default function MainContent(props: MainContentProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiTracks, shouldFetchTrending]);
 
-  const [suggestedSongs, setSuggestedSongs] = useState<Track[]>([]);
-  useEffect(() => {
-    let isMounted = true;
-
-
-    const fetchSuggestedSongs = async () => {
-      try {
-        const artistsToFetch: string[] = [];
-        if (followedArtists && followedArtists.length > 0) {
-          followedArtists.forEach(fa => {
-            if (fa.name && !artistsToFetch.includes(fa.name)) {
-              artistsToFetch.push(fa.name);
-            }
-          });
-        }
-
-        const fallbackArtists = [
-          "Sabrina Carpenter", "Bruno Mars", "Billie Eilish", "The Weeknd",
-          "SZA", "Dua Lipa", "Post Malone", "Taylor Swift", "Drake",
-          "Rihanna", "Justin Bieber", "Ariana Grande", "Lady Gaga", "Coldplay",
-          "Ed Sheeran", "Beyoncé"
-        ];
-
-        for (const name of fallbackArtists) {
-          if (artistsToFetch.length >= 40) break;
-          if (!artistsToFetch.includes(name)) {
-            artistsToFetch.push(name);
-          }
-        }
-
-        const uniqueFiltered: Track[] = [];
-        const seenTitles = new Set<string>();
-        const seenIds = new Set<string>();
-
-        for (const artistName of artistsToFetch) {
-          if (uniqueFiltered.length >= 40) break;
-
-          const results = await searchDeezerMusic(`${artistName}`);
-          const filtered = (results || []).filter(t => !isCompilation(t.title));
-
-          for (const t of filtered) {
-            const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
-            if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
-              seenTitles.add(lowerTitle);
-              seenIds.add(t.id);
-              uniqueFiltered.push(t);
-              break; // take exactly 1 unique song per artist
-            }
-          }
-        }
-
-        if (uniqueFiltered.length < 40) {
-          const fallbackResults = await searchDeezerMusic("top charts");
-          const filteredFallback = (fallbackResults || []).filter(t => !isCompilation(t.title));
-          for (const t of filteredFallback) {
-            if (uniqueFiltered.length >= 40) break;
-            const lowerTitle = t.title.toLowerCase().trim().replace(/official video|music video|official audio|\(|\)|\[|\]/g, "").trim();
-            if (!seenTitles.has(lowerTitle) && !seenIds.has(t.id)) {
-              seenTitles.add(lowerTitle);
-              seenIds.add(t.id);
-              uniqueFiltered.push(t);
-            }
-          }
-        }
-
-        if (isMounted && uniqueFiltered.length > 0) {
-          setSuggestedSongs(uniqueFiltered.slice(0, 20));
-        }
-      } catch (err) {
-        console.error("Error fetching suggested songs:", err);
-      }
-    };
-    fetchSuggestedSongs();
-    return () => { isMounted = false; };
-  }, [followedArtists.length]);
+  // Local state for suggested songs has been moved to App.tsx and passed down via props.
 
   // Fetch recommended tracks
   useEffect(() => {
@@ -768,7 +696,7 @@ export default function MainContent(props: MainContentProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onToggleShuffle}
-                            className={`rounded-full transition-colors w-10 h-10 ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                            className={`rounded-full transition-colors hover:bg-transparent w-10 h-10 ${isShuffle ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
                           >
                             <Shuffle size={20} />
                           </Button>
@@ -785,7 +713,7 @@ export default function MainContent(props: MainContentProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onToggleRepeat}
-                            className={`rounded-full transition-colors relative w-10 h-10 ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
+                            className={`rounded-full transition-colors hover:bg-transparent relative w-10 h-10 ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-500 hover:text-white"}`}
                           >
                             {repeatMode === "one" ? <Repeat1 size={20} /> : <Repeat size={20} />}
                             {repeatMode !== "none" && (

@@ -21,7 +21,7 @@ export function HomeCard({
   return (
     <div
       onClick={() => onSelect(track)}
-      className="group/card hover:bg-zinc-800 p-3 rounded-2xl transition-all duration-300 cursor-pointer hover:shadow-2xl hover:-translate-y-[-0.5rem]"
+      className="group/card hover:bg-zinc-800/80 p-3 rounded-2xl transition-all duration-300 cursor-pointer hover:shadow-2xl"
     >
       {/* Image Container */}
       <div className="relative mb-4">

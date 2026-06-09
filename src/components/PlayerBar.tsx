@@ -125,7 +125,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleShuffle}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-transparent ${isShuffle ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
                     }`}
                 >
                   <Shuffle size={18} />
@@ -143,7 +143,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onPrev}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-transparent"
                 >
                   <SkipBack size={20} />
                 </Button>
@@ -173,8 +173,8 @@ export default function PlayerBar({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  onClick={onNext}
-                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-zinc-800/50"
+                  onClick={() => onNext()}
+                  className="text-zinc-300 hover:text-white transition-colors hover:scale-105 hover:bg-transparent"
                 >
                   <SkipForward size={20} />
                 </Button>
@@ -191,7 +191,7 @@ export default function PlayerBar({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleRepeat}
-                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-zinc-800/50 relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
+                  className={`hidden sm:flex transition-colors hover:scale-105 hover:bg-transparent relative ${repeatMode !== "none" ? "text-[#1DB954]" : "text-zinc-400 hover:text-white"
                     }`}
                 >
                   {repeatMode === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}

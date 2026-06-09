@@ -39,7 +39,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const oscillatorRef = useRef<OscillatorNode | null>(null);
 
   const handleNextRef = useRef<(auto?: boolean) => void>(() => { });
-  const onExhaustedRef = useRef<(lastTrack: Track | null) => void>(() => { });
+  const onExhaustedRef = useRef<(lastTrack: Track | null) => Track | void>(() => { });
 
   const currentTrack = currentIndex >= 0 ? queue[currentIndex] ?? null : null;
 
@@ -359,6 +359,14 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
         startTimer();
       } else if (event.data === 2) {
         // Paused
+        
+        // If we just started a track (< 1.5s ago), ignore this pause event and force play!
+        // This prevents spurious 'paused' events from YouTube during transitions from halting playback.
+        if (isPlayingRef.current && !intentionalPauseRef.current && (Date.now() - trackStartWallTimeRef.current < 1500)) {
+          try { event.target.playVideo(); } catch {}
+          return;
+        }
+
         // Only fight a background pause if user did NOT intentionally pause
         if (document.hidden && isPlayingRef.current && !intentionalPauseRef.current) {
           // Chrome/Android forced a background pause.
@@ -464,7 +472,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   useEffect(() => {
     let isMounted = true;
     
-    if (currentTrack && !currentTrack.youtubeId && currentTrack.id.startsWith("deezer-")) {
+    if (currentTrack && !currentTrack.youtubeId) {
       const resolveId = async () => {
         const query = `${currentTrack.title} ${currentTrack.artist} official audio`;
         const videoId = await resolveYouTubeId(query);
@@ -729,8 +737,25 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     trackStartWallTimeRef.current = Date.now();
     backgroundPlayback.resetPlaybackTimer();
     setCurrentIndex(index);
+    isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [backgroundPlayback]);
+    lastPokedTrackIdRef.current = null;
+    clearPlaybackGuards();
+
+    const track = queue[index];
+    if (track?.youtubeId) {
+      previousTrackIdRef.current = track.youtubeId;
+      try {
+        const p = playerRef.current;
+        if (p) {
+          p.loadVideoById(track.youtubeId);
+          p.playVideo();
+          lastPokedTrackIdRef.current = track.youtubeId;
+          lastStuckTimeRef.current = Date.now();
+        }
+      } catch {}
+    }
+  }, [backgroundPlayback, queue, clearPlaybackGuards]);
 
   const playArbitraryTrack = useCallback((track: Track, contextQueue?: Track[]) => {
     intentionalPauseRef.current = false;
@@ -740,7 +765,10 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     currentTimeRef.current = 0;
     trackStartWallTimeRef.current = Date.now();
     backgroundPlayback.resetPlaybackTimer();
+    isPlayingRef.current = true;
     setIsPlaying(true);
+    lastPokedTrackIdRef.current = null;
+    clearPlaybackGuards();
 
     setQueue((prev) => {
       const q = contextQueue ?? prev;
@@ -755,7 +783,20 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       setCurrentIndex(newQueue.length - 1);
       return newQueue;
     });
-  }, [backgroundPlayback]);
+
+    if (track.youtubeId) {
+      previousTrackIdRef.current = track.youtubeId;
+      try {
+        const p = playerRef.current;
+        if (p) {
+          p.loadVideoById(track.youtubeId);
+          p.playVideo();
+          lastPokedTrackIdRef.current = track.youtubeId;
+          lastStuckTimeRef.current = Date.now();
+        }
+      } catch {}
+    }
+  }, [backgroundPlayback, clearPlaybackGuards]);
 
   const loadTrack = useCallback((track: Track, contextQueue?: Track[]) => {
     setCurrentTime(0);
@@ -764,6 +805,8 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     trackStartWallTimeRef.current = Date.now();
     backgroundPlayback.resetPlaybackTimer();
     setIsPlaying(false);
+    lastPokedTrackIdRef.current = null;
+    clearPlaybackGuards();
 
     setQueue((prev) => {
       const q = contextQueue ?? prev;
@@ -778,7 +821,17 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
       setCurrentIndex(newQueue.length - 1);
       return newQueue;
     });
-  }, [backgroundPlayback]);
+
+    if (track.youtubeId) {
+      previousTrackIdRef.current = track.youtubeId;
+      try {
+        const p = playerRef.current;
+        if (p && typeof p.cueVideoById === 'function') {
+          p.cueVideoById(track.youtubeId);
+        }
+      } catch {}
+    }
+  }, [backgroundPlayback, clearPlaybackGuards]);
 
 
   const handleNext = useCallback((auto = false) => {
@@ -786,6 +839,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     if (!auto) {
       backgroundPlayback.initSilentAudio(); // Synchronous init if user clicked
     }
+    intentionalPauseRef.current = false;
     clearPlaybackGuards();
 
     // CRITICAL: Reset poke tracker so background worker treats it as new track
@@ -815,25 +869,51 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     trackStartWallTimeRef.current = Date.now();
     backgroundPlayback.resetPlaybackTimer();
 
+    let nextTrack: Track | null = null;
+
     if (isShuffle) {
       const nextIdx = Math.floor(Math.random() * queue.length);
+      nextTrack = queue[nextIdx];
       setCurrentIndex(nextIdx);
     } else {
       const nextIdx = currentIndex + 1;
       if (nextIdx >= queue.length) {
         if (repeatMode === "all") {
+          nextTrack = queue[0];
           setCurrentIndex(0);
         } else {
-          onExhaustedRef.current(queue[currentIndex] || null);
-          return;
+          // If queue exhausted, check if we get a suggested track to append
+          const trackToAppend = onExhaustedRef.current(queue[currentIndex] || null);
+          if (trackToAppend) {
+            nextTrack = trackToAppend;
+            setQueue((prev) => [...prev, trackToAppend]);
+            setCurrentIndex(queue.length);
+          } else {
+            return;
+          }
         }
       } else {
+        nextTrack = queue[nextIdx];
         setCurrentIndex(nextIdx);
       }
     }
 
+    isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [currentIndex, queue, isShuffle, repeatMode, resumeAudioContext, clearPlaybackGuards, backgroundPlayback, wakeUpPlayer]);
+
+    if (nextTrack?.youtubeId) {
+      previousTrackIdRef.current = nextTrack.youtubeId;
+      try {
+        const p = playerRef.current;
+        if (p) {
+          p.loadVideoById(nextTrack.youtubeId);
+          p.playVideo();
+          lastPokedTrackIdRef.current = nextTrack.youtubeId;
+          lastStuckTimeRef.current = Date.now();
+        }
+      } catch {}
+    }
+  }, [currentIndex, queue, isShuffle, repeatMode, resumeAudioContext, clearPlaybackGuards, backgroundPlayback, wakeUpPlayer, kickPlay]);
 
   useEffect(() => {
     handleNextRef.current = handleNext;
@@ -842,6 +922,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
   const handlePrev = useCallback(() => {
     resumeAudioContext();
     backgroundPlayback.initSilentAudio(); // Synchronous init
+    intentionalPauseRef.current = false;
 
     if (currentTimeRef.current > 3) {
       try {
@@ -862,9 +943,28 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     currentTimeRef.current = 0;
     trackStartWallTimeRef.current = Date.now();
     backgroundPlayback.resetPlaybackTimer();
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    
+    const nextIdx = currentIndex > 0 ? currentIndex - 1 : 0;
+    const nextTrack = queue[nextIdx];
+    setCurrentIndex(nextIdx);
+    isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [resumeAudioContext, backgroundPlayback]);
+    lastPokedTrackIdRef.current = null;
+    clearPlaybackGuards();
+
+    if (nextTrack?.youtubeId) {
+      previousTrackIdRef.current = nextTrack.youtubeId;
+      try {
+        const p = playerRef.current;
+        if (p) {
+          p.loadVideoById(nextTrack.youtubeId);
+          p.playVideo();
+          lastPokedTrackIdRef.current = nextTrack.youtubeId;
+          lastStuckTimeRef.current = Date.now();
+        }
+      } catch {}
+    }
+  }, [currentIndex, queue, resumeAudioContext, backgroundPlayback, clearPlaybackGuards]);
 
   const seek = useCallback(
     (pct: number) => {
