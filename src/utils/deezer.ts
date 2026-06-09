@@ -80,3 +80,31 @@ export const searchDeezerArtists = async (query: string): Promise<any[]> => {
     return [];
   }
 };
+
+export const fetchWeeklyPopularSongs = async (): Promise<Track[]> => {
+  try {
+    const baseUrl = "/api/deezer";
+    // We use a known Deezer Playlist ID that corresponds to Top Worldwide/Global Top 50 hits
+    const url = `${baseUrl}/playlist/3155776842`;
+    const response = await axios.get(url);
+    
+    const items = response.data?.tracks?.data || [];
+    
+    return items.map((item: any) => ({
+      id: `deezer-weekly-${item.id}`,
+      title: item.title,
+      artist: item.artist?.name || "Unknown Artist",
+      album: item.album?.title || "Unknown Album",
+      duration: item.duration, // Deezer duration is in seconds
+      youtubeId: "", // Will be fetched later when playing
+      thumbnail: item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium || "",
+      genre: "Popular",
+      year: new Date().getFullYear(),
+      spotifyUrl: undefined,
+      youtubeUrl: "",
+    }));
+  } catch (error) {
+    console.error("Deezer Weekly Popular Error:", error);
+    return [];
+  }
+};

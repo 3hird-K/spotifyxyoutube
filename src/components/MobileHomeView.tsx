@@ -42,6 +42,7 @@ interface MobileHomeViewProps {
     suggestedSongs?: Track[];
     suggestedArtists?: any[];
     setSelectedArtist?: (artist: any) => void;
+    weeklyPopularSongs?: Track[];
 }
 
 export function MobileHomeView({
@@ -60,6 +61,7 @@ export function MobileHomeView({
     suggestedSongs = [],
     suggestedArtists = [],
     setSelectedArtist,
+    weeklyPopularSongs = [],
 }: MobileHomeViewProps) {
     const [activeTab, setActiveTab] = useState("All");
     const { isGuest, displayName, avatarUrl, avatarInitial } = profile;
@@ -308,6 +310,35 @@ export function MobileHomeView({
                                 <div
                                     key={`suggested-${track.id}`}
                                     onClick={() => onSelect(track, suggestedSongs)}
+                                    className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
+                                >
+                                    <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">
+                                        <img
+                                            src={track.thumbnail}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            alt=""
+                                        />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-white truncate px-0.5">
+                                        {track.title}
+                                    </p>
+                                    <p className="text-[10px] font-medium text-zinc-400 line-clamp-2 px-0.5">
+                                        {track.artist}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )}
+
+                {/* Weekly Popular Songs */}
+                {weeklyPopularSongs && weeklyPopularSongs.length > 0 && (
+                    <Section title="Weekly Popular Songs">
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                            {weeklyPopularSongs.map((track) => (
+                                <div
+                                    key={`weekly-${track.id}`}
+                                    onClick={() => onSelect(track, weeklyPopularSongs)}
                                     className="shrink-0 w-32 flex flex-col gap-2 group cursor-pointer"
                                 >
                                     <div className="relative aspect-square rounded-md overflow-hidden bg-zinc-900">

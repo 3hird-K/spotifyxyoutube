@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HorizontalScrollSection } from "./HorizontalScrollSection";
 import { MusicLoader } from "./MusicLoader";
+import { useWeeklyPopularSongs } from "../hooks/useWeeklyPopularSongs";
+import { WeeklyPopularSongs } from "./WeeklyPopularSongs";
 
 const EMPTY_TRACKS: Track[] = [];
 
@@ -214,6 +216,8 @@ export default function MainContent(props: MainContentProps) {
     });
   }, [rawApiTracks]);
 
+  const { songs: weeklyPopularSongs } = useWeeklyPopularSongs(shouldFetchTrending);
+
 
   // Queue update — tightened deps
   useEffect(() => {
@@ -361,6 +365,7 @@ export default function MainContent(props: MainContentProps) {
           suggestedSongs={suggestedSongs}
           suggestedArtists={suggestedArtists}
           setSelectedArtist={setSelectedArtist}
+          weeklyPopularSongs={weeklyPopularSongs}
         />
       </>
     );
@@ -882,6 +887,13 @@ export default function MainContent(props: MainContentProps) {
                     ))}
                   </HorizontalScrollSection>
                 )}
+
+                {/* Weekly Popular Songs */}
+                <WeeklyPopularSongs 
+                  songs={weeklyPopularSongs} 
+                  onSelect={onSelect} 
+                  onAddArtist={handleFollowArtist} 
+                />
 
                 {/* Recommended Stations / Most Popular songs */}
                 <HorizontalScrollSection
