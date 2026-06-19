@@ -1,20 +1,39 @@
 import { supabase } from "../lib/supabase";
 import Logo from '../public/images/spotifylogo.png';
 
-export const LoginScreen = () => {
+interface LoginScreenProps {
+  onGuestLogin?: () => void;
+}
+
+export const LoginScreen = ({ onGuestLogin }: LoginScreenProps) => {
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
+    try {
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+    } catch (err) {
+      console.error("Google login failed (Supabase may be down):", err);
+      // Fall back to local guest login if Supabase is unreachable
+      onGuestLogin?.();
+    }
   };
 
-  // NEW: Anonymous Login Handler
   const handleGuestLogin = async () => {
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) console.error("Guest login error:", error.message);
+    // First try Supabase anonymous login
+    try {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.warn("Supabase anonymous login failed, using local guest mode:", error.message);
+        onGuestLogin?.();
+        return;
+      }
+    } catch (err) {
+      console.warn("Supabase unreachable, using local guest mode:", err);
+      onGuestLogin?.();
+    }
   };
 
   return (
@@ -59,7 +78,7 @@ export const LoginScreen = () => {
             <span className="text-xs sm:text-[15px]">Continue with Google</span>
           </button>
 
-          {/* NEW: Guest Button */}
+          {/* Guest Button */}
           <button
             onClick={handleGuestLogin}
             className="w-full flex items-center justify-center gap-3 text-zinc-700 cursor-pointer font-semibold py-2.5 sm:py-3 px-4 sm:px-6 sm:rounded-2xl transition-all duration-300 hover:underline active:scale-[0.98]"

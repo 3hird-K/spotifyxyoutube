@@ -5,7 +5,6 @@ import {
 } from "lucide-react";
 import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
-import { supabase } from "../lib/supabase";
 import { UserProfile } from "../hooks/useUserProfile";
 import { usePWAInstall } from "../hooks/usePWAInstall";
 import {
@@ -43,6 +42,7 @@ interface MobileHomeViewProps {
     suggestedArtists?: any[];
     setSelectedArtist?: (artist: any) => void;
     weeklyPopularSongs?: Track[];
+    onSignOut?: () => void;
 }
 
 export function MobileHomeView({
@@ -62,6 +62,7 @@ export function MobileHomeView({
     suggestedArtists = [],
     setSelectedArtist,
     weeklyPopularSongs = [],
+    onSignOut,
 }: MobileHomeViewProps) {
     const [activeTab, setActiveTab] = useState("All");
     const { isGuest, displayName, avatarUrl, avatarInitial } = profile;
@@ -155,7 +156,7 @@ export function MobileHomeView({
                                         Account
                                     </DropdownMenuLabel>
                                     <DropdownMenuItem
-                                        onClick={async () => { await supabase.auth.signOut(); }}
+                                        onClick={() => { if (onSignOut) onSignOut(); }}
                                         className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800/50 cursor-pointer flex items-center gap-2"
                                     >
                                         <LogOut size={14} />

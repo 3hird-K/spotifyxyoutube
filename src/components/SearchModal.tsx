@@ -107,7 +107,6 @@ export default function SearchModal({
                 <h3 className="text-base font-bold text-white px-2 mb-3 mt-2">Recent Searches</h3>
                 <div className="space-y-1">
                   {recentSearchTracks.map((track) => {
-                    const isLiked = liked.has(track.id);
                     return (
                       <button
                         key={`recent-${track.id}`}

@@ -16,6 +16,7 @@ import { CreatePlaylistModal } from "./components/CreatePlaylistModal";
 import { PanelRightOpen, PanelRightClose, Home, Library, LogIn, LogOut, Plus, ListMusic, Users } from "lucide-react";
 import { searchYouTubeMusic } from "./utils/youtube";
 import { supabase } from "./lib/supabase"; // Your supabase client
+import { cachePurgeExpired } from "./utils/cache";
 import { Playlist } from "./data/playlists";
 import { Track } from "./data/tracks";
 
@@ -33,8 +34,22 @@ import { Input } from "./components/ui/input";
 export default function App() {
 
   // ── Auth State ────────────────────────────────────────────────────────────
+  // Local guest user object — used when Supabase is unreachable (quota exceeded, etc.)
+  const LOCAL_GUEST_USER = {
+    id: "local-guest",
+    is_anonymous: true,
+    _isLocalGuest: true,  // custom flag to distinguish from Supabase anonymous users
+    user_metadata: {},
+  };
+
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Bypass Supabase entirely — sets a local-only guest user
+  const localGuestLogin = () => {
+    setUser(LOCAL_GUEST_USER);
+    setIsAuthLoading(false);
+  };
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [activeView, setActiveView] = useState("home");
@@ -56,11 +71,11 @@ export default function App() {
   const pip = usePictureInPicture(player.currentTrack);
   const { toggleFollowArtist, isFollowing, followedArtists } = useFollowedArtists(user);
   const { suggestedSongs } = useSuggestedSongs(followedArtists || []);
-  const { recentSearchTracks, recentSearches, addRecentSearch, removeRecentSearch } = useSearchHistory(user);
+  const { recentSearchTracks, addRecentSearch, removeRecentSearch } = useSearchHistory(user);
   const initialVideoIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    player.onExhaustedRef.current = (lastTrack) => {
+    player.onExhaustedRef.current = () => {
       if (suggestedSongs.length > 0) {
         const next = suggestedSongs[Math.floor(Math.random() * suggestedSongs.length)];
         return next;
@@ -91,7 +106,17 @@ export default function App() {
 
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (user?._isLocalGuest) {
+      // Local guest — just clear the user state, no Supabase call
+      setUser(null);
+      return;
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Supabase unreachable — just clear locally
+      setUser(null);
+    }
   };
 
   // Helper for Guest vs Google User
@@ -100,20 +125,43 @@ export default function App() {
   const avatarUrl = !isGuest && user?.user_metadata?.avatar_url ? user.user_metadata.avatar_url : null;
   const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "U";
 
-  // ── Auth Logic (Supabase) ────────────────────────────────────────────────
+  // ── Purge expired IndexedDB cache entries on app start ────────────────────
   useEffect(() => {
+    cachePurgeExpired().catch(() => {});
+  }, []);
+
+  // ── Auth Logic (Supabase — with graceful fallback) ──────────────────────
+  useEffect(() => {
+    let subscription: any = null;
+
     // 1. Check current session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setIsAuthLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setIsAuthLoading(false);
+      })
+      .catch(() => {
+        // Supabase is unreachable (quota exceeded, etc.)
+        // Don't auto-login — just show the login screen so user can click "Continue without account"
+        console.warn("Supabase unreachable — local-only mode available");
+        setIsAuthLoading(false);
+      });
 
     // 2. Listen for auth changes (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        // Don't overwrite a local guest user with null from Supabase
+        setUser((prev: any) => {
+          if (prev?._isLocalGuest && !session?.user) return prev;
+          return session?.user ?? null;
+        });
+      });
+      subscription = data?.subscription;
+    } catch {
+      console.warn("Could not set up Supabase auth listener");
+    }
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe?.();
   }, []);
 
   // Sync player position with the sidebar dock
@@ -513,7 +561,7 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    player.onExhaustedRef.current = (lastTrack) => {
+    player.onExhaustedRef.current = () => {
       if (suggestedSongs.length === 0) return;
 
       const existingIds = new Set(player.queue.map((t) => t.id));
@@ -538,7 +586,7 @@ export default function App() {
       <div className="relative h-dvh w-full bg-black overflow-hidden">
 
         {/* 1. LOGIN OVERLAY (Hidden if user is logged in) */}
-        {!user && <LoginScreen />}
+        {!user && <LoginScreen onGuestLogin={localGuestLogin} />}
 
         {/* 2. MAIN APP CONTENT (Blurred if no user) */}
         <div className={`flex flex-col h-full transition-all duration-700 ease-in-out ${!user ? "blur-2xl scale-110 pointer-events-none select-none" : "blur-0 scale-100"}`}>
@@ -599,6 +647,7 @@ export default function App() {
               onToggleShuffle={player.toggleShuffle}
               onToggleRepeat={player.toggleRepeat}
               setShowCreateModal={setShowCreateModal}
+              onSignOut={handleLogout}
             />
 
             <aside
@@ -660,7 +709,7 @@ export default function App() {
                       </p>
                     </div>
                     {isGuest ? (
-                      <button onClick={() => supabase.auth.signOut()} className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Log in to Sync">
+                      <button onClick={handleLogout} className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Log in to Sync">
                         <LogIn size={16} />
                       </button>
                     ) : (

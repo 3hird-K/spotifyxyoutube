@@ -7,7 +7,7 @@ import { Track, GENRES } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { useSearchMusic } from "../hooks/useSearchMusic";
 import { searchYouTubeMusic, getArtistDetails } from "../utils/youtube";
-import { searchDeezerMusic, searchDeezerArtistPicture } from "../utils/deezer";
+import { searchDeezerArtistPicture } from "../utils/deezer";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useFollowedArtists } from "../hooks/useFollowedArtists";
@@ -60,6 +60,7 @@ interface MainContentProps {
   onToggleRepeat: () => void;
   setShowCreateModal: (show: boolean) => void;
   suggestedSongs: Track[];
+  onSignOut?: () => void;
 }
 
 const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void; isFollowing?: boolean }) => {
@@ -154,6 +155,7 @@ export default function MainContent(props: MainContentProps) {
     setShowCreateModal,
     suggestedSongs,
   } = props;
+  const onSignOut = props.onSignOut;
 
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
@@ -366,6 +368,7 @@ export default function MainContent(props: MainContentProps) {
           suggestedArtists={suggestedArtists}
           setSelectedArtist={setSelectedArtist}
           weeklyPopularSongs={weeklyPopularSongs}
+          onSignOut={onSignOut}
         />
       </>
     );

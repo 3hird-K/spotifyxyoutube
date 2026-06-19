@@ -1019,12 +1019,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     [liked, user]
   );
 
-  const addToQueue = useCallback((track: Track) => {
-    setQueue((prev) => {
-      if (prev.find((t) => t.id === track.id)) return prev;
-      return [...prev, track];
-    });
-  }, []);
+
 
   const nextRef = useRef(handleNext);
   const prevRef = useRef(handlePrev);

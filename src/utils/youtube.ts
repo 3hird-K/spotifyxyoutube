@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { cacheGet, cacheSet } from "./cache";
 import axios from "axios";
 import { Track } from "../data/tracks";
 
@@ -76,6 +76,12 @@ const mapToTrack = (video: any, albumName: string): Track => ({
   description: video.snippet.description || "",
 });
 
+/* --------------------------------
+   TTL Constants
+--------------------------------- */
+const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
 /* -----------------------------
    CORE SEARCH FUNCTION
    (+ optional recommendation mode)
@@ -121,25 +127,13 @@ const executeSearch = async (
 
   try {
     /* =========================
-       1. CACHE CHECK
+       1. CACHE CHECK (IndexedDB)
     ========================= */
-    const { data: cached, error: cacheError } = await supabase
-      .from("youtube_search_cache")
-      .select("results, created_at")
-      .eq("query", cacheKey)
-      .maybeSingle();
+    const cached = await cacheGet<Track[]>(cacheKey, SEVEN_DAYS);
 
-    if (cacheError) console.error("Cache fetch error:", cacheError);
-
-    if (cached && cached.created_at) {
-      const isFresh =
-        new Date().getTime() -
-        new Date(cached.created_at).getTime() <
-        7 * 24 * 60 * 60 * 1000;
-
-      if (isFresh && cached.results) {
-        return (cached.results as unknown) as Track[];
-      }
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      inMemoryCache[cacheKey] = cached;
+      return cached;
     }
 
     let results: Track[] = [];
@@ -259,24 +253,11 @@ const executeSearch = async (
     }
 
     /* =========================
-       4. SAVE TO CACHE
+       4. SAVE TO CACHE (IndexedDB)
     ========================= */
     if (results.length > 0) {
       inMemoryCache[cacheKey] = results;
-      try {
-        await supabase
-          .from("youtube_search_cache")
-          .upsert(
-            {
-              query: cacheKey,
-              results: results as any,
-              created_at: new Date().toISOString(),
-            },
-            { onConflict: "query" }
-          );
-      } catch (upsertError) {
-        console.warn("Cache save error (non-fatal):", upsertError);
-      }
+      cacheSet(cacheKey, results).catch(() => {}); // fire-and-forget
     }
 
     return results;
@@ -290,23 +271,15 @@ const executeSearch = async (
 
 export const getArtistDetails = async (channelId: string): Promise<{ subscriberCount?: string; viewCount?: string; thumbnailUrl?: string }> => {
   if (API_KEYS.length === 0 || !channelId) return {};
+
+  const cacheKey = `artist-detail:${channelId}`;
+
   try {
-    // 1. Check cache first
-    const { data: cached } = await supabase
-      .from("youtube_artist_cache")
-      .select("*")
-      .eq("channel_id", channelId)
-      .maybeSingle();
+    // 1. Check IndexedDB cache first (30-day TTL)
+    const cached = await cacheGet<{ subscriberCount?: string; viewCount?: string; thumbnailUrl?: string }>(cacheKey, THIRTY_DAYS);
 
     if (cached) {
-      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
-      if (isFresh) {
-        return {
-          subscriberCount: cached.subscriber_count || undefined,
-          viewCount: cached.view_count || undefined,
-          thumbnailUrl: cached.thumbnail_url || undefined,
-        };
-      }
+      return cached;
     }
 
     // 2. Not cached, fetch from API
@@ -324,30 +297,8 @@ export const getArtistDetails = async (channelId: string): Promise<{ subscriberC
         thumbnailUrl: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url,
       };
 
-      // 3. Save to cache
-      const { data: existing } = await supabase
-        .from("youtube_artist_cache")
-        .select("id")
-        .eq("channel_id", channelId)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from("youtube_artist_cache").update({
-          subscriber_count: stats.subscriberCount,
-          view_count: stats.viewCount,
-          thumbnail_url: stats.thumbnailUrl,
-          created_at: new Date().toISOString(),
-        }).eq("id", existing.id);
-      } else {
-        await supabase.from("youtube_artist_cache").insert({
-          channel_id: channelId,
-          artist_name: channel.snippet?.title?.toLowerCase() || `id:${channelId}`,
-          subscriber_count: stats.subscriberCount,
-          view_count: stats.viewCount,
-          thumbnail_url: stats.thumbnailUrl,
-          created_at: new Date().toISOString(),
-        });
-      }
+      // 3. Save to IndexedDB cache
+      cacheSet(cacheKey, stats).catch(() => {});
 
       return stats;
     }
@@ -377,21 +328,14 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
       return inMemoryCache[cacheKey];
     }
 
-    // 2. Check Supabase cache
-    const { data: cached } = await supabase
-      .from("youtube_search_cache")
-      .select("results, created_at")
-      .eq("query", cacheKey)
-      .maybeSingle();
+    // 2. Check IndexedDB cache (30-day TTL)
+    const cached = await cacheGet<Track[]>(cacheKey, THIRTY_DAYS);
 
-    if (cached && cached.created_at) {
-      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
-      if (isFresh && cached.results) {
-        const track = Array.isArray(cached.results) ? cached.results[0] : cached.results;
-        if (track) {
-          inMemoryCache[cacheKey] = track;
-          return track as unknown as Track;
-        }
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      const track = cached[0];
+      if (track) {
+        inMemoryCache[cacheKey] = track;
+        return track as Track;
       }
     }
 
@@ -422,17 +366,8 @@ export const getMostPopularArtistTrack = async (artistName: string): Promise<Tra
         const track = mapToTrack(videoItem, "Popular Releases");
       inMemoryCache[cacheKey] = track;
 
-        // 4. Update Supabase search cache
-        await supabase
-          .from("youtube_search_cache")
-          .upsert(
-            {
-              query: cacheKey,
-              results: [track] as any,
-              created_at: new Date().toISOString(),
-            },
-            { onConflict: "query" }
-          );
+        // 4. Save to IndexedDB cache
+        cacheSet(cacheKey, [track]).catch(() => {});
 
         return track;
       }
@@ -455,19 +390,12 @@ export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
       return inMemoryCache[cacheKey];
     }
 
-    // 2. Check Supabase cache
-    const { data: cached } = await supabase
-      .from("youtube_search_cache")
-      .select("results, created_at")
-      .eq("query", cacheKey)
-      .maybeSingle();
+    // 2. Check IndexedDB cache (30-day TTL)
+    const cached = await cacheGet<any[]>(cacheKey, THIRTY_DAYS);
 
-    if (cached && cached.created_at) {
-      const isFresh = new Date().getTime() - new Date(cached.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
-      if (isFresh && Array.isArray(cached.results)) {
-        inMemoryCache[cacheKey] = cached.results;
-        return cached.results;
-      }
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      inMemoryCache[cacheKey] = cached;
+      return cached;
     }
 
     // 3. Not cached or expired, fetch from YouTube API
@@ -490,17 +418,8 @@ export const searchYouTubeArtists = async (query: string): Promise<any[]> => {
     if (artists.length > 0) {
       inMemoryCache[cacheKey] = artists;
 
-      // Update Supabase search cache
-      await supabase
-        .from("youtube_search_cache")
-        .upsert(
-          {
-            query: cacheKey,
-            results: artists as any,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: "query" }
-        );
+      // Save to IndexedDB cache
+      cacheSet(cacheKey, artists).catch(() => {});
     }
 
     return artists;
@@ -522,19 +441,12 @@ export const resolveYouTubeId = async (query: string): Promise<string | null> =>
 
   const promise = (async () => {
     try {
-    // Check Supabase cache
-    const { data: cachedData, error: cacheError } = await supabase
-      .from("youtube_search_cache")
-      .select("results")
-      .eq("query", cacheKey)
-      .maybeSingle();
+    // Check IndexedDB cache
+    const cached = await cacheGet<string[]>(cacheKey, SEVEN_DAYS);
 
-    if (cachedData && !cacheError && cachedData.results) {
-      const results = cachedData.results as string[];
-      if (results && results.length > 0) {
-        inMemoryCache[cacheKey] = results as any;
-        return results[0];
-      }
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      inMemoryCache[cacheKey] = cached;
+      return cached[0];
     }
 
     const res = await axiosGetWithKeyRotation(`${BASE_URL}/search`, {
@@ -552,17 +464,8 @@ export const resolveYouTubeId = async (query: string): Promise<string | null> =>
     if (videoId) {
       inMemoryCache[cacheKey] = [videoId] as any;
       
-      // Update Supabase cache
-      await supabase
-        .from("youtube_search_cache")
-        .upsert(
-          {
-            query: cacheKey,
-            results: [videoId] as any,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: "query" }
-        );
+      // Save to IndexedDB cache
+      cacheSet(cacheKey, [videoId]).catch(() => {});
 
       return videoId;
     }
