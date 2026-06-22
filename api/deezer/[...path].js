@@ -1,9 +1,8 @@
 // Vercel Serverless Function — proxies requests to the Deezer API
-// Uses CommonJS to avoid ESM issues with Vercel's serverless runtime
-const https = require("https");
-const url = require("url");
+// Project has "type": "module" so .js files use ESM syntax
+import https from "node:https";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -12,17 +11,11 @@ module.exports = async function handler(req, res) {
     return res.status(204).end();
   }
 
-  // Parse the actual request URL to get the full path after /api/deezer/
-  const parsed = url.parse(req.url, true);
-  const fullPath = parsed.pathname || "";
-  
-  // Remove the /api/deezer prefix to get the Deezer API path
+  // Parse the full path after /api/deezer/
+  const fullPath = req.url || "";
   const deezerPath = fullPath.replace(/^\/api\/deezer\/?/, "");
 
-  // Build query string from the original URL's query parameters
-  const queryString = parsed.search || "";
-  
-  const deezerUrl = `https://api.deezer.com/${deezerPath}${queryString}`;
+  const deezerUrl = `https://api.deezer.com/${deezerPath}`;
 
   console.log("[Deezer Proxy] Forwarding to:", deezerUrl);
 
@@ -40,7 +33,7 @@ module.exports = async function handler(req, res) {
           try {
             resolve({ status: response.statusCode, body: JSON.parse(body) });
           } catch (e) {
-            resolve({ status: response.statusCode, body: { error: "Invalid JSON from Deezer", raw: body.slice(0, 500) } });
+            resolve({ status: response.statusCode, body: { error: "Invalid JSON", raw: body.slice(0, 500) } });
           }
         });
       });
@@ -52,7 +45,6 @@ module.exports = async function handler(req, res) {
       });
     });
 
-    // Set CORS + cache headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -68,4 +60,4 @@ module.exports = async function handler(req, res) {
       url: deezerUrl,
     });
   }
-};
+}
