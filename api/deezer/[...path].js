@@ -1,8 +1,9 @@
 // Vercel Serverless Function — proxies requests to the Deezer API
-// Uses .mjs extension for explicit ESM support in Vercel's runtime
-import https from "https";
+// Uses CommonJS to avoid ESM issues with Vercel's serverless runtime
+const https = require("https");
+const url = require("url");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -11,23 +12,19 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  // Extract the Deezer path from the catch-all route
-  const { path: pathSegments, ...queryParams } = req.query;
-  const deezerPath = Array.isArray(pathSegments)
-    ? pathSegments.join("/")
-    : pathSegments || "";
+  // Parse the actual request URL to get the full path after /api/deezer/
+  const parsed = url.parse(req.url, true);
+  const fullPath = parsed.pathname || "";
+  
+  // Remove the /api/deezer prefix to get the Deezer API path
+  const deezerPath = fullPath.replace(/^\/api\/deezer\/?/, "");
 
-  // Build query string from remaining params
-  const qs = new URLSearchParams();
-  for (const [key, value] of Object.entries(queryParams)) {
-    if (Array.isArray(value)) {
-      value.forEach((v) => qs.append(key, v));
-    } else {
-      qs.set(key, String(value));
-    }
-  }
+  // Build query string from the original URL's query parameters
+  const queryString = parsed.search || "";
+  
+  const deezerUrl = `https://api.deezer.com/${deezerPath}${queryString}`;
 
-  const deezerUrl = `https://api.deezer.com/${deezerPath}${qs.toString() ? "?" + qs.toString() : ""}`;
+  console.log("[Deezer Proxy] Forwarding to:", deezerUrl);
 
   try {
     const data = await new Promise((resolve, reject) => {
@@ -42,8 +39,8 @@ export default async function handler(req, res) {
         response.on("end", () => {
           try {
             resolve({ status: response.statusCode, body: JSON.parse(body) });
-          } catch {
-            resolve({ status: response.statusCode, body: { error: "Invalid JSON from Deezer", raw: body.slice(0, 200) } });
+          } catch (e) {
+            resolve({ status: response.statusCode, body: { error: "Invalid JSON from Deezer", raw: body.slice(0, 500) } });
           }
         });
       });
@@ -68,6 +65,7 @@ export default async function handler(req, res) {
     return res.status(502).json({
       error: "Failed to fetch from Deezer API",
       detail: error?.message || "Unknown error",
+      url: deezerUrl,
     });
   }
-}
+};
