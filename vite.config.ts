@@ -17,6 +17,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo-512x512.png'],
+      workbox: {
+        // Exclude API routes from service worker caching
+        navigateFallbackDenylist: [/^\/api\//],
+        // Don't precache API responses
+        runtimeCaching: [],
+      },
       manifest: {
         name: 'Spotify Music Player',
         short_name: 'Spotify Player',
