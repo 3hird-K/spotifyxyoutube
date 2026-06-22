@@ -12,11 +12,7 @@
     ],
     "rewrites": [
         {
-            "source": "/api/deezer/:match*",
-            "destination": "https://api.deezer.com/:match*"
-        },
-        {
-            "source": "/(.*)",
+            "source": "/((?!api/).*)",
             "destination": "/index.html"
         }
     ]
