@@ -1,5 +1,6 @@
-// Vercel Serverless Function — proxies requests to the Deezer API
-// Project has "type": "module" so .js files use ESM syntax
+// Vercel Serverless Function — proxies /api/deezer/* to https://api.deezer.com/*
+// All /api/deezer/* paths are rewritten to this function via vercel.json
+// The deezer path is passed as ?deezerPath=... and original query params are merged
 import https from "node:https";
 
 export default async function handler(req, res) {
@@ -11,11 +12,22 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  // Parse the full path after /api/deezer/
-  const fullPath = req.url || "";
-  const deezerPath = fullPath.replace(/^\/api\/deezer\/?/, "");
+  // Get the Deezer path from the rewrite's query parameter
+  const deezerPath = req.query.deezerPath || "";
 
-  const deezerUrl = `https://api.deezer.com/${deezerPath}`;
+  // Build query string from remaining params (exclude deezerPath itself)
+  const queryParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(req.query)) {
+    if (key === "deezerPath") continue;
+    if (Array.isArray(value)) {
+      value.forEach((v) => queryParams.append(key, v));
+    } else {
+      queryParams.set(key, String(value));
+    }
+  }
+
+  const qs = queryParams.toString();
+  const deezerUrl = `https://api.deezer.com/${deezerPath}${qs ? "?" + qs : ""}`;
 
   console.log("[Deezer Proxy] Forwarding to:", deezerUrl);
 
@@ -33,7 +45,10 @@ export default async function handler(req, res) {
           try {
             resolve({ status: response.statusCode, body: JSON.parse(body) });
           } catch (e) {
-            resolve({ status: response.statusCode, body: { error: "Invalid JSON", raw: body.slice(0, 500) } });
+            resolve({
+              status: response.statusCode,
+              body: { error: "Invalid JSON from Deezer", raw: body.slice(0, 500) },
+            });
           }
         });
       });
@@ -57,7 +72,7 @@ export default async function handler(req, res) {
     return res.status(502).json({
       error: "Failed to fetch from Deezer API",
       detail: error?.message || "Unknown error",
-      url: deezerUrl,
+      targetUrl: deezerUrl,
     });
   }
 }
