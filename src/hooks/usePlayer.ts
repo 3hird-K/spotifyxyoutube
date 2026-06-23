@@ -833,6 +833,36 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     }
   }, [backgroundPlayback, clearPlaybackGuards]);
 
+  const playNext = useCallback((track: Track) => {
+    setQueue((prevQueue) => {
+      if (prevQueue.length === 0) {
+        setCurrentIndex(0);
+        return [track];
+      }
+      
+      const newQueue = [...prevQueue];
+      const existingIdx = newQueue.findIndex(t => t.id === track.id);
+      
+      if (existingIdx === currentIndex + 1) return prevQueue;
+      
+      let adjIndex = currentIndex;
+      if (existingIdx !== -1 && existingIdx !== currentIndex) {
+        newQueue.splice(existingIdx, 1);
+        if (existingIdx < currentIndex) {
+          adjIndex--;
+        }
+      }
+      
+      newQueue.splice(adjIndex + 1, 0, track);
+      
+      if (adjIndex !== currentIndex) {
+        setCurrentIndex(adjIndex);
+      }
+      
+      return newQueue;
+    });
+  }, [currentIndex]);
+
 
   const handleNext = useCallback((auto = false) => {
     resumeAudioContext();
@@ -1150,6 +1180,7 @@ export function usePlayer(initialTracks: Track[], user: any = null) {
     toggleLike,
     setQueueOnly,
     loadTrack,
+    playNext,
     replaceQueue: useCallback((newQueue: Track[], newIndex: number) => {
       setQueue(newQueue);
       setCurrentIndex(newIndex);

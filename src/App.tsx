@@ -337,13 +337,23 @@ export default function App() {
         return;
       }
 
-      const formatted: Playlist[] = dbPlaylists.map((pl: any) => ({
-        id: pl.id,
-        name: pl.name,
-        description: pl.description || "",
-        tracks: (pl.playlist_tracks || []).map((t: any) => t.track_data as unknown as Track),
-        createdAt: pl.created_at ? new Date(pl.created_at).getTime() : Date.now(),
-      }));
+      const formatted: Playlist[] = dbPlaylists.map((pl: any) => {
+        const tracks = (pl.playlist_tracks || [])
+          .map((t: any) => t.track_data as unknown as Track)
+          .sort((a: any, b: any) => {
+            const orderA = a._order ?? 0;
+            const orderB = b._order ?? 0;
+            return orderA - orderB;
+          });
+
+        return {
+          id: pl.id,
+          name: pl.name,
+          description: pl.description || "",
+          tracks,
+          createdAt: pl.created_at ? new Date(pl.created_at).getTime() : Date.now(),
+        };
+      });
 
       setPlaylists(formatted);
     };
@@ -506,6 +516,12 @@ export default function App() {
   }, []);
 
   const handleAddToPlaylist = useCallback(async (playlistId: string, track: Track) => {
+    const playlist = playlists.find(p => p.id === playlistId);
+    const nextOrder = playlist && playlist.tracks.length > 0 
+      ? Math.max(...playlist.tracks.map((t: any) => t._order ?? 0)) + 1 
+      : 0;
+    const trackWithOrder = { ...track, _order: nextOrder };
+
     // Optimistic update
     setPlaylists((prev) =>
       prev.map((pl) =>
@@ -514,7 +530,7 @@ export default function App() {
             ...pl,
             tracks: pl.tracks.find((t) => t.id === track.id)
               ? pl.tracks
-              : [...pl.tracks, track],
+              : [...pl.tracks, trackWithOrder],
           }
           : pl
       )
@@ -527,14 +543,14 @@ export default function App() {
         .insert({
           playlist_id: playlistId,
           track_id: track.id,
-          track_data: track as any,
+          track_data: trackWithOrder as any,
         });
 
       if (error && error.code !== '23505') { // Ignore unique constraint violation
         console.error("Error adding track to playlist:", error);
       }
     }
-  }, [user]);
+  }, [user, playlists]);
 
   const handleRemoveFromPlaylist = useCallback(async (playlistId: string, trackId: string) => {
     // Optimistic update
@@ -559,6 +575,40 @@ export default function App() {
       }
     }
   }, [user]);
+
+  const handleReorderPlaylist = useCallback(async (playlistId: string, startIndex: number, endIndex: number) => {
+    const activePlaylist = playlists.find(p => p.id === playlistId);
+    if (!activePlaylist) return;
+
+    const result = Array.from(activePlaylist.tracks);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    
+    // Assign new _order to each track
+    const newTracks = result.map((t, idx) => ({ ...t, _order: idx }));
+
+    // Optimistic update
+    setPlaylists((prev) =>
+      prev.map((pl) => pl.id === playlistId ? { ...pl, tracks: newTracks } : pl)
+    );
+
+    // Supabase update
+    if (user && !user.is_anonymous) {
+      const updates = newTracks.map((track) => ({
+        playlist_id: playlistId,
+        track_id: track.id,
+        track_data: track as any,
+      }));
+
+      const { error } = await supabase
+        .from("playlist_tracks")
+        .upsert(updates, { onConflict: "playlist_id,track_id" });
+
+      if (error) {
+        console.error("Error updating playlist track order:", error);
+      }
+    }
+  }, [playlists, user]);
 
   useEffect(() => {
     player.onExhaustedRef.current = () => {
@@ -624,6 +674,7 @@ export default function App() {
               onTogglePlay={player.togglePlay}
               onQueueChange={player.setQueue}
               onQueueUpdateOnly={player.setQueueOnly}
+              onPlayNext={player.playNext}
               activeView={activeView}
               setActiveView={setActiveView}
               selectedArtist={selectedArtist}
@@ -631,6 +682,7 @@ export default function App() {
               playlists={playlists}
               onAddToPlaylist={handleAddToPlaylist}
               onRemoveFromPlaylist={handleRemoveFromPlaylist}
+              onReorderPlaylist={handleReorderPlaylist}
 
               activePlaylist={activePlaylist}
               onOpenSearch={() => setIsSearchOpen(true)}

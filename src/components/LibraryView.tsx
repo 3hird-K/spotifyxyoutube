@@ -3,6 +3,7 @@ import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { HorizontalScrollSection } from "./HorizontalScrollSection";
 import { HomeCard } from "./HomeCard";
+import { getPlaylistColor } from "../utils/colorUtils";
 
 export function LibraryView({
   playlists,
@@ -58,8 +59,8 @@ export function LibraryView({
                   {pl.tracks[0]?.thumbnail ? (
                     <img src={pl.tracks[0].thumbnail} alt={pl.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   ) : (
-                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                      <ListMusic size={40} className="text-zinc-700 sm:w-12 sm:h-12" />
+                    <div className={`w-full h-full ${getPlaylistColor(pl.id)} flex items-center justify-center`}>
+                      <ListMusic size={40} className="text-white/80 drop-shadow-md sm:w-12 sm:h-12" />
                     </div>
                   )}
                   <button

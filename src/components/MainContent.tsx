@@ -11,6 +11,7 @@ import { searchDeezerArtistPicture } from "../utils/deezer";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useFollowedArtists } from "../hooks/useFollowedArtists";
+import { getPlaylistColor } from "../utils/colorUtils";
 
 import { LibraryView } from "./LibraryView";
 import { TrackDetailView } from "./TrackDetailView";
@@ -26,6 +27,7 @@ import { HorizontalScrollSection } from "./HorizontalScrollSection";
 import { MusicLoader } from "./MusicLoader";
 import { useWeeklyPopularSongs } from "../hooks/useWeeklyPopularSongs";
 import { WeeklyPopularSongs } from "./WeeklyPopularSongs";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 const EMPTY_TRACKS: Track[] = [];
 
@@ -61,6 +63,8 @@ interface MainContentProps {
   setShowCreateModal: (show: boolean) => void;
   suggestedSongs: Track[];
   onSignOut?: () => void;
+  onPlayNext?: (track: Track) => void;
+  onReorderPlaylist?: (playlistId: string, startIndex: number, endIndex: number) => void;
 }
 
 const ArtistCard = ({ artist, onSelect, onFollow, isFollowing }: { artist: any; onSelect: () => void; onFollow?: (art: any) => void; isFollowing?: boolean }) => {
@@ -154,8 +158,18 @@ export default function MainContent(props: MainContentProps) {
     onToggleRepeat,
     setShowCreateModal,
     suggestedSongs,
+    onPlayNext,
   } = props;
   const onSignOut = props.onSignOut;
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    if (result.source.index === result.destination.index) return;
+    
+    if (isPlaylistView && activePlaylist && props.onReorderPlaylist) {
+      props.onReorderPlaylist(activePlaylist.id, result.source.index, result.destination.index);
+    }
+  };
 
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [recommendedTracks, setRecommendedTracks] = useState<Track[]>([]);
@@ -666,9 +680,15 @@ export default function MainContent(props: MainContentProps) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
               <div className="flex items-center gap-3 min-w-0">
                 {(isPlaylistView || activeView === "liked") && (
-                  <span className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center shrink-0 ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : "bg-zinc-800"}`}>
-                    {activeView === "liked" ? <Heart size={22} className="text-white fill-white" /> : <ListMusic size={22} className="text-zinc-400" />}
-                  </span>
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${activeView === "liked" ? "bg-gradient-to-br from-indigo-500 to-purple-700" : (activePlaylist?.tracks?.[0]?.thumbnail ? "" : getPlaylistColor(activePlaylist?.id || ""))}`}>
+                    {activeView === "liked" ? (
+                      <Heart size={22} className="text-white fill-white" />
+                    ) : activePlaylist?.tracks?.[0]?.thumbnail ? (
+                      <img src={activePlaylist.tracks[0].thumbnail} className="w-full h-full object-cover" alt="Playlist" />
+                    ) : (
+                      <ListMusic size={22} className="text-white drop-shadow-md" />
+                    )}
+                  </div>
                 )}
                 <div className="min-w-0 flex-1">
                   <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight break-words mb-1 pr-2">
@@ -850,8 +870,8 @@ export default function MainContent(props: MainContentProps) {
                             alt={pl.name}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                            <ListMusic size={24} className="text-zinc-500" />
+                          <div className={`w-full h-full flex items-center justify-center ${getPlaylistColor(pl.id)}`}>
+                            <ListMusic size={24} className="text-white drop-shadow-md" />
                           </div>
                         )}
                         {/* Subtle inner frame */}
@@ -973,34 +993,57 @@ export default function MainContent(props: MainContentProps) {
 
               </div>
             ) : (
-              <div className="space-y-1">
-                <div className="hidden sm:grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden">
-                  <span className="w-8 text-center">#</span>
-                  <span>Title</span>
-                  <span>Album</span>
-                  <span>Listeners</span>
-                  <span className="flex items-center gap-1"><Clock size={13} /></span>
-                  <span className="w-20 text-center">Actions</span>
-                </div>
-                {displayTracks.map((track, idx) => (
-                  <TrackRow
-                    key={track.id}
-                    track={track}
-                    idx={idx}
-                    isCurrent={currentTrack?.id === track.id}
-                    isTrackPlaying={currentTrack?.id === track.id && isPlaying}
-                    isLiked={liked.has(track.id)}
-                    onSelect={(t) => onSelect(t, displayTracks)}
-                    onToggleLike={onToggleLike}
-                    playlists={playlists}
-                    onAddToPlaylist={onAddToPlaylist}
-                    isInPlaylist={isPlaylistView}
-                    activePlaylistId={isPlaylistView ? activeView.replace("playlist:", "") : null}
-                    onRemoveFromPlaylist={onRemoveFromPlaylist}
-                    onTrackDetail={onTrackDetail}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="playlist-droppable" isDropDisabled={!isPlaylistView}>
+                  {(provided) => (
+                    <div
+                      className="space-y-1"
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                    >
+                      <div className={`hidden sm:grid gap-4 px-3 sm:px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2 overflow-hidden ${isPlaylistView ? 'grid-cols-[auto_auto_minmax(0,2fr)_minmax(0,1fr)_auto_auto]' : 'grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_auto_auto]'}`}>
+                        {isPlaylistView && <span className="w-4"></span>}
+                        <span className="w-8 text-center">#</span>
+                        <span>Title</span>
+                        <span>Album</span>
+                        <span className="flex items-center gap-1"><Clock size={13} /></span>
+                        <span className="w-20 text-center">Actions</span>
+                      </div>
+                      {displayTracks.map((track, idx) => (
+                        <Draggable
+                          key={track.id}
+                          draggableId={track.id}
+                          index={idx}
+                          isDragDisabled={!isPlaylistView}
+                        >
+                          {(provided) => (
+                            <TrackRow
+                              track={track}
+                              idx={idx}
+                              isCurrent={currentTrack?.id === track.id}
+                              isTrackPlaying={currentTrack?.id === track.id && isPlaying}
+                              isLiked={liked.has(track.id)}
+                              onSelect={(t) => onSelect(t, displayTracks)}
+                              onToggleLike={onToggleLike}
+                              playlists={playlists}
+                              onAddToPlaylist={onAddToPlaylist}
+                              isInPlaylist={isPlaylistView}
+                              activePlaylistId={isPlaylistView ? activeView.replace("playlist:", "") : null}
+                              onRemoveFromPlaylist={onRemoveFromPlaylist}
+                              onTrackDetail={onTrackDetail}
+                              onPlayNext={onPlayNext}
+                              innerRef={provided.innerRef}
+                              draggableProps={provided.draggableProps}
+                              dragHandleProps={provided.dragHandleProps}
+                            />
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )
           )}
         </div>

@@ -7,6 +7,7 @@ import { Track } from "../data/tracks";
 import { Playlist } from "../data/playlists";
 import { UserProfile } from "../hooks/useUserProfile";
 import { usePWAInstall } from "../hooks/usePWAInstall";
+import { getPlaylistColor } from "../utils/colorUtils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -222,6 +223,8 @@ export function MobileHomeView({
                             onClick={() => setActiveView(`playlist:${pl.id}`)}
                             name={pl.name}
                             thumbnail={pl.tracks[0]?.thumbnail}
+                            iconBg={!pl.tracks[0]?.thumbnail ? getPlaylistColor(pl.id) : undefined}
+                            icon={!pl.tracks[0]?.thumbnail ? <ListMusic size={18} className="text-white drop-shadow-md" /> : undefined}
                         />
                     ))}
                 </div>
