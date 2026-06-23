@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { DateTimeWidget } from "./DateTimeWidget";
 import {
   Search, Play, Clock, Heart, Trash2, ListMusic, Shuffle, Repeat, Repeat1
 } from "lucide-react";
@@ -654,6 +655,11 @@ export default function MainContent(props: MainContentProps) {
     displayTracks = apiTracks;
   }
 
+  const greetingByHour = (() => {
+    const h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  })();
+
   const pageTitle = isPlaylistView
     ? activePlaylist?.name ?? "Playlist"
     : activeView === "search-results"
@@ -662,7 +668,7 @@ export default function MainContent(props: MainContentProps) {
         ? "Liked Songs"
         : activeView === "search"
           ? "Search Music"
-          : "Trending Music";
+          : greetingByHour;
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-y-auto relative">
@@ -703,6 +709,11 @@ export default function MainContent(props: MainContentProps) {
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Date/Time Widget */}
+              <div className="hidden lg:flex shrink-0">
+                <DateTimeWidget />
               </div>
 
               <div className="flex items-center justify-between sm:justify-end gap-2 mt-1 sm:mt-0 w-full sm:w-auto shrink-0">

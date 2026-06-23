@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DateTimeWidget } from "./DateTimeWidget";
 import {
     Heart, Trash2, ListMusic, LogOut, Menu, Plus,
     Search, Download
@@ -183,6 +184,11 @@ export function MobileHomeView({
                             {tab}
                         </button>
                     ))}
+                </div>
+
+                {/* Live Date/Time */}
+                <div className="flex items-center justify-between">
+                    <DateTimeWidget compact />
                 </div>
             </div>
 
